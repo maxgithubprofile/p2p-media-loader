@@ -1,25 +1,13 @@
 {
-  "name": "p2p-media-loader-hlsjs",
-  "description": "P2P Media Loader hls.js integration",
-  "version": "0.6.2",
+  "name": "@peertube/p2p-media-loader-hlsjs",
+  "description": "P2P Media Loader hls.js integration - PeerTube fork",
+  "version": "1.0.0",
+  "private": false,
   "license": "Apache-2.0",
-  "author": "Novage",
-  "homepage": "https://github.com/Novage/p2p-media-loader",
+  "author": "Chocobozzz",
+  "homepage": "https://github.com/Chocobozzz/p2p-media-loader",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "keywords": [
-    "p2p",
-    "peer-to-peer",
-    "hls",
-    "webrtc",
-    "video",
-    "mse",
-    "player",
-    "torrent",
-    "bittorrent",
-    "webtorrent",
-    "hlsjs"
-  ],
   "scripts": {
     "compile": "tsc",
     "browserify": "mkdirp ./build && browserify -r ./dist/index.js:p2p-media-loader-hlsjs ./dist/browser-init.js -x p2p-media-loader-core -x debug -x events -x buffer > ./build/p2p-media-loader-hlsjs.js",
@@ -32,12 +20,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Novage/p2p-media-loader.git"
+    "url": "https://github.com/Chocobozzz/p2p-media-loader.git"
   },
   "dependencies": {
     "events": "^3.3.0",
     "m3u8-parser": "^4.6.0",
-    "p2p-media-loader-core": "^0.6.2"
+    "@peertube/p2p-media-loader-core": "^1.0.0"
   },
   "devDependencies": {
     "@types/events": "^3.0.0",

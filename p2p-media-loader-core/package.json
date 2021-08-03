@@ -1,27 +1,13 @@
 {
-  "name": "p2p-media-loader-core",
-  "description": "P2P Media Loader core functionality",
-  "version": "0.6.2",
+  "name": "@peertube/p2p-media-loader-core",
+  "description": "P2P Media Loader core - PeerTube fork",
+  "version": "1.0.0",
+  "private": false,
   "license": "Apache-2.0",
-  "author": "Novage",
-  "homepage": "https://github.com/Novage/p2p-media-loader",
+  "author": "Chocobozzz",
+  "homepage": "https://github.com/Chocobozzz/p2p-media-loader",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "keywords": [
-    "p2p",
-    "peer-to-peer",
-    "hls",
-    "dash",
-    "webrtc",
-    "video",
-    "mse",
-    "player",
-    "torrent",
-    "bittorrent",
-    "webtorrent",
-    "hlsjs",
-    "shaka player"
-  ],
   "scripts": {
     "compile": "tsc",
     "browserify": "mkdirp ./build && browserify -r ./dist/index.js:p2p-media-loader-core -r debug -r events -r buffer ./dist/browser-init.js > ./build/p2p-media-loader-core.js",
@@ -34,7 +20,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Novage/p2p-media-loader.git"
+    "url": "https://github.com/Chocobozzz/p2p-media-loader.git"
   },
   "dependencies": {
     "bittorrent-tracker": "^9.16.1",
