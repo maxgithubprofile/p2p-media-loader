@@ -16,6 +16,7 @@
 
 import { Events, Segment, LoaderInterface, XhrSetupCallback } from "@peertube/p2p-media-loader-core";
 import { Manifest, Parser } from "m3u8-parser";
+import { ByteRange, byteRangeToString, compareByteRanges } from "./byte-range"
 import { AssetsStorage } from "./engine";
 
 const defaultSettings: SegmentManagerSettings = {
@@ -23,8 +24,6 @@ const defaultSettings: SegmentManagerSettings = {
     swarmId: undefined,
     assetsStorage: undefined,
 };
-
-export type ByteRange = { length: number; offset: number } | undefined;
 
 export class SegmentManager {
     public readonly loader: LoaderInterface;
@@ -504,18 +503,4 @@ export interface SegmentManagerSettings {
      * A storage for the downloaded assets: manifests, subtitles, init segments, DRM assets etc. By default the assets are not stored.
      */
     assetsStorage?: AssetsStorage;
-}
-
-function compareByteRanges(b1: ByteRange, b2: ByteRange) {
-    return b1 === undefined ? b2 === undefined : b2 !== undefined && b1.length === b2.length && b1.offset === b2.offset;
-}
-
-function byteRangeToString(byteRange: ByteRange): string | undefined {
-    if (byteRange === undefined) {
-        return undefined;
-    }
-
-    const end = byteRange.offset + byteRange.length - 1;
-
-    return `bytes=${byteRange.offset}-${end}`;
 }

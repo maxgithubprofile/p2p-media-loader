@@ -44,11 +44,25 @@ export enum Events {
      */
     SegmentError = "segment_error",
 
+
+    /**
+     * Emitter when we the segment size is known
+     * Args: segment, size
+     */
+    SegmentSize = "segment_size",
+
     /**
      * Emitted for each segment that does not hit into a new segments queue when the load() method is called.
      * Args: segment
      */
     SegmentAbort = "segment_abort",
+
+
+    /**
+     * Emitted when the loader started to load a segment
+     * Args: method, segment
+     */
+    SegmentStartLoad = "segment_start_load",
 
     /**
      * Emitted when a peer is connected.
@@ -77,6 +91,9 @@ export enum Events {
 
 export interface LoaderInterface extends EventEmitter {
     on: ((eventName: string, listener: (...params: unknown[]) => void) => this) &
+        ((eventName: Events.SegmentStartLoad, listener: (method: "http" | "p2p", segment: Segment) => void) => this) &
+        ((eventName: Events.SegmentSize, listener: (segment: Segment, size: number) => void) => this) &
+        ((eventName: Events.PieceBytesDownloaded | Events.PieceBytesUploaded, listener: (method: "http" | "p2p", segment: Segment, bytes: number, peerId?: string) => void) => this) &
         ((eventName: Events.SegmentLoaded, listener: (segment: Segment) => void) => this) &
         ((eventName: Events.SegmentError, listener: (segment: Segment, error: unknown) => void) => this) &
         ((eventName: Events.SegmentAbort, listener: (segment: Segment) => void) => this);

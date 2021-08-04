@@ -96,13 +96,19 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
         this.debug("loader settings", this.settings);
 
         this.httpManager = this.createHttpManager();
+        this.httpManager.on("segment-start-load", (segment: Segment) => this.onSegmentStartLoad("http", segment));
         this.httpManager.on("segment-loaded", this.onSegmentLoaded);
         this.httpManager.on("segment-error", this.onSegmentError);
-        this.httpManager.on("bytes-downloaded", (bytes: number) => this.onPieceBytesDownloaded("http", bytes));
+        this.httpManager.on("segment-size", this.onSegmentSize);
+        this.httpManager.on("bytes-downloaded", (segment: Segment, bytes: number) => {
+            this.onPieceBytesDownloaded("http", segment, bytes)
+        });
 
         this.p2pManager = this.createP2PManager();
+        this.p2pManager.on("segment-start-load", (segment: Segment) => this.onSegmentStartLoad("p2p", segment));
         this.p2pManager.on("segment-loaded", this.onSegmentLoaded);
         this.p2pManager.on("segment-error", this.onSegmentError);
+        this.p2pManager.on("segment-size", this.onSegmentSize);
         this.p2pManager.on("peer-data-updated", async () => {
             if (this.masterSwarmId === undefined) {
                 return;
@@ -113,11 +119,11 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
                 this.p2pManager.sendSegmentsMapToAll(this.createSegmentsMap(storageSegments));
             }
         });
-        this.p2pManager.on("bytes-downloaded", (bytes: number, peerId: string) =>
-            this.onPieceBytesDownloaded("p2p", bytes, peerId)
+        this.p2pManager.on("bytes-downloaded", (segment: Segment, bytes: number, peerId: string) =>
+            this.onPieceBytesDownloaded("p2p", segment, bytes, peerId)
         );
-        this.p2pManager.on("bytes-uploaded", (bytes: number, peerId: string) =>
-            this.onPieceBytesUploaded("p2p", bytes, peerId)
+        this.p2pManager.on("bytes-uploaded", (segment: Segment, bytes: number, peerId: string) =>
+            this.onPieceBytesUploaded("p2p", segment, bytes, peerId)
         );
         this.p2pManager.on("peer-connected", this.onPeerConnect);
         this.p2pManager.on("peer-closed", this.onPeerClose);
@@ -420,13 +426,17 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
         this.p2pManager.sendSegmentsMapToAll(this.createSegmentsMap(storageSegments));
     };
 
-    private onPieceBytesDownloaded = (method: "http" | "p2p", bytes: number, peerId?: string) => {
-        this.bandwidthApproximator.addBytes(bytes, this.now());
-        this.emit(Events.PieceBytesDownloaded, method, bytes, peerId);
+    private onSegmentStartLoad = (method: "http" | "p2p", segment: Segment) => {
+        this.emit(Events.SegmentStartLoad, method, segment);
     };
 
-    private onPieceBytesUploaded = (method: "p2p", bytes: number, peerId?: string) => {
-        this.emit(Events.PieceBytesUploaded, method, bytes, peerId);
+    private onPieceBytesDownloaded = (method: "http" | "p2p", segment: Segment, bytes: number, peerId?: string) => {
+        this.bandwidthApproximator.addBytes(bytes, this.now());
+        this.emit(Events.PieceBytesDownloaded, method, segment, bytes, peerId);
+    };
+
+    private onPieceBytesUploaded = (method: "p2p", segment: Segment, bytes: number, peerId?: string) => {
+        this.emit(Events.PieceBytesUploaded, method, segment, bytes, peerId);
     };
 
     private onSegmentLoaded = async (segment: Segment, data: ArrayBuffer, peerId?: string) => {
@@ -459,6 +469,11 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
                 this.p2pManager.sendSegmentsMapToAll(this.createSegmentsMap(storageSegments));
             }
         }
+    };
+
+    private onSegmentSize = async (segment: Segment, size: number) => {
+        this.debugSegments("segment size", segment.id, size);
+        this.emit(Events.SegmentSize, segment, size);
     };
 
     private getStreamSwarmId = (segment: Segment) => {

@@ -64,11 +64,13 @@ export class MediaPeer extends STEEmitter<
     | "connect"
     | "close"
     | "data-updated"
+    | "segment-start-load"
     | "segment-request"
     | "segment-absent"
     | "segment-loaded"
     | "segment-error"
     | "segment-timeout"
+    | "segment-size"
     | "bytes-downloaded"
     | "bytes-uploaded"
 > {
@@ -123,9 +125,9 @@ export class MediaPeer extends STEEmitter<
 
         this.downloadingSegment.bytesDownloaded += data.byteLength;
         this.downloadingSegment.pieces.push(data);
-        this.emit("bytes-downloaded", this, data.byteLength);
 
         const segmentId = this.downloadingSegment.id;
+        this.emit("bytes-downloaded", this, segmentId, data.byteLength);
 
         if (this.downloadingSegment.bytesDownloaded === this.downloadingSegment.size) {
             const segmentData = new Uint8Array(this.downloadingSegment.size);
@@ -197,6 +199,8 @@ export class MediaPeer extends STEEmitter<
                     command.s >= 0
                 ) {
                     this.downloadingSegment = new DownloadingSegment(command.i, command.s);
+                    this.emit("segment-start-load", this.downloadingSegment.id)
+                    this.emit("segment-size", this.downloadingSegment.id, this.downloadingSegment.size)
                     this.cancelResponseTimeoutTimer();
                 }
                 break;
@@ -296,7 +300,7 @@ export class MediaPeer extends STEEmitter<
             bytesLeft -= bytesToSend;
         }
 
-        this.emit("bytes-uploaded", this, data.byteLength);
+        this.emit("bytes-uploaded", this, segmentId, data.byteLength);
     };
 
     public sendSegmentAbsent = (segmentId: string): void => {

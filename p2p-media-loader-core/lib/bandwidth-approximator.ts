@@ -14,8 +14,12 @@
  * limitations under the License.
  */
 
-const SMOOTH_INTERVAL = 15 * 1000;
-const MEASURE_INTERVAL = 60 * 1000;
+import Debug from "debug";
+
+const debug = Debug("p2pml:bandwidth-approximator");
+
+const SMOOTH_INTERVAL = 2 * 1000;
+const MEASURE_INTERVAL = 40 * 1000;
 
 class NumberWithTime {
     constructor(readonly value: number, readonly timeStamp: number) {}
@@ -27,6 +31,8 @@ export class BandwidthApproximator {
     private lastBandwidth: NumberWithTime[] = [];
 
     public addBytes = (bytes: number, timeStamp: number): void => {
+        debug("Add %d bytes.", bytes)
+
         this.lastBytes.push(new NumberWithTime(bytes, timeStamp));
         this.currentBytesSum += bytes;
 
@@ -51,6 +57,8 @@ export class BandwidthApproximator {
                 maxBandwidth = bandwidth.value;
             }
         }
+
+        debug("Max bandwidth: %d.", maxBandwidth)
 
         return maxBandwidth;
     };

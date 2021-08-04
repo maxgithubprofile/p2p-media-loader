@@ -16,28 +16,13 @@
 
 import { SegmentManager } from "./segment-manager";
 import type { LoaderCallbacks, LoaderConfiguration, LoaderContext, LoaderStats } from "hls.js";
-import { Events } from "@peertube/p2p-media-loader-core";
-
-const DEFAULT_DOWNLOAD_LATENCY = 1;
-const DEFAULT_DOWNLOAD_BANDWIDTH = 12500; // bytes per millisecond
-
-type HlsJsV0Stats = {
-    trequest: number;
-    tfirst: number;
-    tload: number;
-    tparsed: number;
-    loaded: number;
-    total: number;
-};
+import { Events, Segment } from "@peertube/p2p-media-loader-core";
+import { byteRangeToString, getByteRange } from "./byte-range"
 
 export class HlsJsLoader {
     private isLoaded = false;
     private segmentManager: SegmentManager;
-    public stats: HlsJsV0Stats & LoaderStats = {
-        trequest: 0,
-        tfirst: 0,
-        tload: 0,
-        tparsed: 0,
+    public stats: LoaderStats = {
         loaded: 0,
         total: 0,
         aborted: false,
@@ -69,9 +54,7 @@ export class HlsJsLoader {
         _config: LoaderConfiguration,
         callbacks: LoaderCallbacks<LoaderContext>
     ): Promise<void> {
-        const start = performance.now();
-        this.stats.loading.start = start - DEFAULT_DOWNLOAD_LATENCY;
-        this.stats.loading.first = start;
+        HlsJsLoader.updateStatsToStartLoading(this.stats)
 
         if (((context as unknown) as { type: unknown }).type) {
             try {
@@ -83,26 +66,57 @@ export class HlsJsLoader {
             }
         } else if (((context as unknown) as { frag: unknown }).frag) {
             const { loader } = this.segmentManager;
+            const byteRange = getByteRange(context)
 
-            const updateBandwidthEstimate = () => {
-                const bandwidthEstimate = loader.getBandwidthEstimate();
-                // convert bytes per millisecond to bits per second
-                this.stats.bwEstimate = bandwidthEstimate * 8000;
-                this.stats.loaded = (performance.now() - start) * bandwidthEstimate;
+            const isSegment = (segment: Segment) => {
+                return segment.url === context.url && segment.range === byteRangeToString(byteRange)
+            }
+
+            // We may be downloading the segment by P2P, so we don't care about the stats sent to HLS ABR
+            let updateStart: NodeJS.Timeout | undefined = setInterval(() => {
+                HlsJsLoader.updateStatsToStartLoading(this.stats)
+            }, 200)
+
+            const onUpdateSegmentSize = (segment: Segment, size: number) => {
+                if (!isSegment(segment)) return
+
+                this.stats.total = size
             };
-            loader.on(Events.PieceBytesDownloaded, updateBandwidthEstimate);
+            loader.on(Events.SegmentSize, onUpdateSegmentSize)
+
+            const onUpdateLoaded = (_type: unknown, segment: Segment, bytes: number) => {
+                if (!isSegment(segment)) return
+
+                this.stats.loaded += bytes
+            };
+
+            const onSegmentStartLoad = (method: "http" | "p2p", segment: Segment) => {
+                if (!updateStart || method !== "http" || !isSegment(segment)) return
+
+                clearInterval(updateStart)
+                updateStart = undefined
+
+                HlsJsLoader.updateStatsToStartLoading(this.stats)
+
+                loader.on(Events.PieceBytesDownloaded, onUpdateLoaded)
+            };
+
+            loader.on(Events.SegmentStartLoad, onSegmentStartLoad)
 
             try {
-                const result = await this.segmentManager.loadSegment(context.url, getByteRange(context));
+                const result = await this.segmentManager.loadSegment(context.url, byteRange);
                 const { content } = result;
                 if (content) {
                     this.isLoaded = true;
-                    setTimeout(() => this.successSegment(content, result.downloadBandwidth, context, callbacks), 0);
+                    setTimeout(() => this.successSegment(content, context, callbacks), 0);
                 }
             } catch (e) {
                 setTimeout(() => this.error(e, context, callbacks), 0);
             } finally {
-                loader.removeListener(Events.PieceBytesDownloaded, updateBandwidthEstimate);
+                clearInterval(updateStart)
+                loader.off(Events.SegmentStartLoad, onSegmentStartLoad)
+                loader.off(Events.SegmentSize, onUpdateSegmentSize)
+                loader.off(Events.PieceBytesDownloaded, onUpdateLoaded)
             }
         } else {
             console.warn("Unknown load request", context);
@@ -128,13 +142,9 @@ export class HlsJsLoader {
     ): void {
         const now = performance.now();
 
-        this.stats.trequest = now - 300;
-        this.stats.tfirst = now - 200;
-        this.stats.tload = now - 1;
+        this.stats.loading.end = now;
         this.stats.loaded = xhr.response.length;
         this.stats.total = xhr.response.length;
-
-        createUniversalStats(this.stats);
 
         callbacks.onSuccess(
             {
@@ -149,26 +159,14 @@ export class HlsJsLoader {
 
     private successSegment(
         content: ArrayBuffer,
-        downloadBandwidth: number | undefined,
         context: LoaderContext,
         callbacks: LoaderCallbacks<LoaderContext>
     ): void {
         const now = performance.now();
-        const downloadTime =
-            content.byteLength /
-            (downloadBandwidth === undefined || downloadBandwidth <= 0
-                ? DEFAULT_DOWNLOAD_BANDWIDTH
-                : downloadBandwidth);
 
-        this.stats.trequest = now - DEFAULT_DOWNLOAD_LATENCY - downloadTime;
-        this.stats.tfirst = now - downloadTime;
-        this.stats.tload = now - 1;
+        this.stats.loading.end = now;
         this.stats.loaded = content.byteLength;
         this.stats.total = content.byteLength;
-        // convert bytes per millisecond to bits per second
-        this.stats.bwEstimate = (downloadBandwidth ?? DEFAULT_DOWNLOAD_BANDWIDTH) * 8000;
-
-        createUniversalStats(this.stats);
 
         if (callbacks.onProgress) {
             callbacks.onProgress(this.stats, context, content, undefined);
@@ -192,20 +190,10 @@ export class HlsJsLoader {
     ): void {
         callbacks.onError(error, context, undefined);
     }
-}
 
-/**
- * Create universal stats entity for both hls.js v0 and v1
- * @param stats hls.js v0 stats
- */
-function createUniversalStats(stats: HlsJsV0Stats & LoaderStats) {
-    stats.loading.start = stats.trequest;
-    stats.loading.first = stats.tfirst;
-    stats.loading.end = stats.tload;
-}
-
-function getByteRange(context: LoaderContext) {
-    return context.rangeEnd && context.rangeStart !== undefined
-        ? { offset: context.rangeStart, length: context.rangeEnd - context.rangeStart }
-        : undefined;
+    private static updateStatsToStartLoading (stats: LoaderStats) {
+        const start = performance.now();
+        stats.loading.start = start;
+        stats.loading.first = start;
+    }
 }

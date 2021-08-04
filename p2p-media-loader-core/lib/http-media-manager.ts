@@ -20,7 +20,11 @@ import { STEEmitter } from "./stringly-typed-event-emitter";
 import { Segment } from "./loader-interface";
 import { SegmentValidatorCallback, XhrSetupCallback, SegmentUrlBuilder } from "./hybrid-loader";
 
-export class HttpMediaManager extends STEEmitter<"segment-loaded" | "segment-error" | "bytes-downloaded"> {
+class FilteredEmitter extends STEEmitter<
+    "segment-start-load" | "segment-loaded" | "segment-error" | "segment-size" | "bytes-downloaded"
+> { }
+
+export class HttpMediaManager extends FilteredEmitter {
     private xhrRequests = new Map<string, { xhr: XMLHttpRequest; segment: Segment }>();
     private failedSegments = new Map<string, number>();
     private debug = Debug("p2pml:http-media-manager");
@@ -43,6 +47,8 @@ export class HttpMediaManager extends STEEmitter<"segment-loaded" | "segment-err
         }
 
         this.cleanTimedOutFailedSegments();
+
+        this.emit("segment-start-load", segment);
 
         const segmentUrl = this.settings.segmentUrlBuilder ? this.settings.segmentUrlBuilder(segment) : segment.url;
 
@@ -117,8 +123,12 @@ export class HttpMediaManager extends STEEmitter<"segment-loaded" | "segment-err
 
         xhr.addEventListener("progress", (event) => {
             const bytesLoaded = event.loaded - prevBytesLoaded;
-            this.emit("bytes-downloaded", bytesLoaded);
+            this.emit("bytes-downloaded", segment, bytesLoaded);
             prevBytesLoaded = event.loaded;
+
+            if (event.lengthComputable) {
+                this.emit("segment-size", segment, event.total);
+            }
         });
 
         xhr.addEventListener("load", async (event) => {

@@ -54,8 +54,10 @@ export class P2PMediaManager extends STEEmitter<
     | "peer-connected"
     | "peer-closed"
     | "peer-data-updated"
+    | "segment-start-load"
     | "segment-loaded"
     | "segment-error"
+    | "segment-size"
     | "bytes-downloaded"
     | "bytes-uploaded"
     | "tracker-update"
@@ -199,6 +201,8 @@ export class P2PMediaManager extends STEEmitter<
         peer.on("segment-loaded", this.onSegmentLoaded);
         peer.on("segment-absent", this.onSegmentAbsent);
         peer.on("segment-error", this.onSegmentError);
+        peer.on("segment-size", this.onSegmentSize);
+        peer.on("segment-start-load", this.onSegmentStartLoad);
         peer.on("segment-timeout", this.onSegmentTimeout);
         peer.on("bytes-downloaded", this.onPieceBytesDownloaded);
         peer.on("bytes-uploaded", this.onPieceBytesUploaded);
@@ -322,12 +326,20 @@ export class P2PMediaManager extends STEEmitter<
         return overallSegmentsMap;
     };
 
-    private onPieceBytesDownloaded = (peer: MediaPeer, bytes: number) => {
-        this.emit("bytes-downloaded", bytes, peer.id);
+    private onPieceBytesDownloaded = (peer: MediaPeer, segmentId: string, bytes: number) => {
+        const peerSegmentRequest = this.peerSegmentRequests.get(segmentId);
+
+        if (peerSegmentRequest) {
+            this.emit("bytes-downloaded", peerSegmentRequest.segment, bytes, peer.id);
+        }
     };
 
-    private onPieceBytesUploaded = (peer: MediaPeer, bytes: number) => {
-        this.emit("bytes-uploaded", bytes, peer.id);
+    private onPieceBytesUploaded = (peer: MediaPeer, segmentId: string, bytes: number) => {
+        const peerSegmentRequest = this.peerSegmentRequests.get(segmentId);
+
+        if (peerSegmentRequest) {
+            this.emit("bytes-uploaded", peerSegmentRequest.segment, bytes, peer.id);
+        }
     };
 
     private onPeerConnect = (peer: MediaPeer) => {
@@ -440,6 +452,22 @@ export class P2PMediaManager extends STEEmitter<
         if (peerSegmentRequest) {
             this.peerSegmentRequests.delete(segmentId);
             this.emit("segment-error", peerSegmentRequest.segment, description, peer.id);
+        }
+    };
+
+    private onSegmentSize = (segmentId: string, size: number) => {
+        const peerSegmentRequest = this.peerSegmentRequests.get(segmentId);
+
+        if (peerSegmentRequest) {
+            this.emit("segment-size", peerSegmentRequest.segment, size);
+        }
+    };
+
+    private onSegmentStartLoad = (segmentId: string, size: number) => {
+        const peerSegmentRequest = this.peerSegmentRequests.get(segmentId);
+
+        if (peerSegmentRequest) {
+            this.emit("segment-start-load", peerSegmentRequest.segment, size);
         }
     };
 
