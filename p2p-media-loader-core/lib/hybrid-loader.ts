@@ -312,6 +312,12 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
                 continue;
             }
 
+            // Segment priority changed, notify http manager
+            if (this.httpManager.isDownloading(segment)) {
+                this.httpManager.updatePriority(segment);
+                continue;
+            }
+
             if (
                 segment.priority <= this.settings.requiredSegmentsPriority &&
                 httpAllowed &&

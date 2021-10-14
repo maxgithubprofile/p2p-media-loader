@@ -25,7 +25,7 @@ class FilteredEmitter extends STEEmitter<
 > { }
 
 export class HttpMediaManager extends FilteredEmitter {
-    private xhrRequests = new Map<string, { xhr: XMLHttpRequest; segment: Segment }>();
+    private xhrRequests = new Map<string, { xhr: XMLHttpRequest; segment: Segment, initialPriority: number, segmentUrl: string }>();
     private failedSegments = new Map<string, number>();
     private debug = Debug("p2pml:http-media-manager");
 
@@ -33,6 +33,7 @@ export class HttpMediaManager extends FilteredEmitter {
         readonly settings: {
             httpFailedSegmentTimeout: number;
             httpUseRanges: boolean;
+            requiredSegmentsPriority: number;
             segmentValidator?: SegmentValidatorCallback;
             xhrSetup?: XhrSetupCallback;
             segmentUrlBuilder?: SegmentUrlBuilder;
@@ -50,7 +51,7 @@ export class HttpMediaManager extends FilteredEmitter {
 
         this.emit("segment-start-load", segment);
 
-        const segmentUrl = this.settings.segmentUrlBuilder ? this.settings.segmentUrlBuilder(segment) : segment.url;
+        const segmentUrl = this.buildSegmentUrl(segment);
 
         this.debug("http segment download", segmentUrl);
 
@@ -82,9 +83,30 @@ export class HttpMediaManager extends FilteredEmitter {
             this.settings.xhrSetup(xhr, segmentUrl);
         }
 
-        this.xhrRequests.set(segment.id, { xhr, segment });
+        this.xhrRequests.set(segment.id, { xhr, segment, initialPriority: segment.priority, segmentUrl });
         xhr.send();
     };
+
+    public updatePriority = (segment: Segment): void => {
+        const request = this.xhrRequests.get(segment.id);
+
+        if (!request) {
+            throw new Error("Cannot update priority of not downloaded segment " + segment.id);
+        }
+
+        // Segment is now in high priority
+        // If the segment URL changed, retry the request with the new URL
+        if (
+            segment.priority <= this.settings.requiredSegmentsPriority &&
+            request.initialPriority > this.settings.requiredSegmentsPriority &&
+            request.segmentUrl !== this.buildSegmentUrl(segment)
+        ) {
+            this.debug("aborting http segment abort because the segment is now in a high priority", segment.id);
+            this.abort(segment)
+            this.download(segment)
+        }
+
+    }
 
     public abort = (segment: Segment): void => {
         const request = this.xhrRequests.get(segment.id);
@@ -206,6 +228,14 @@ export class HttpMediaManager extends FilteredEmitter {
 
         candidates.forEach((id) => this.failedSegments.delete(id));
     };
+
+    private buildSegmentUrl (segment: Segment) {
+        if (this.settings.segmentUrlBuilder) {
+            return this.settings.segmentUrlBuilder(segment);
+        }
+
+        return segment.url;
+    }
 
     private now = () => performance.now();
 }
