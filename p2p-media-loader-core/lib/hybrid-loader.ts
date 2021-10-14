@@ -308,7 +308,7 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
         for (let index = 0; index < this.segmentsQueue.length; index++) {
             const segment = this.segmentsQueue[index];
 
-            if (storageSegments.has(segment.id) || this.httpManager.isDownloading(segment)) {
+            if (storageSegments.has(segment.id)) {
                 continue;
             }
 
