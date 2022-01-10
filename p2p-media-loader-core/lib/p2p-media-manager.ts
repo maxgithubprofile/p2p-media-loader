@@ -334,11 +334,15 @@ export class P2PMediaManager extends STEEmitter<
         }
     };
 
-    private onPieceBytesUploaded = (peer: MediaPeer, segmentId: string, bytes: number) => {
-        const peerSegmentRequest = this.peerSegmentRequests.get(segmentId);
+    private onPieceBytesUploaded = async (peer: MediaPeer, segmentId: string, bytes: number) => {
+        if (this.masterSwarmId === undefined) {
+            return;
+        }
 
-        if (peerSegmentRequest) {
-            this.emit("bytes-uploaded", peerSegmentRequest.segment, bytes, peer.id);
+        const segment = await this.segmentsStorage.getSegment(segmentId, this.masterSwarmId);
+
+        if (segment) {
+            this.emit("bytes-uploaded", segment, bytes, peer.id);
         }
     };
 
