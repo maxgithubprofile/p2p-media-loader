@@ -305,6 +305,8 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
             }
         }
 
+        let scheduleNewProcessQueue = false
+
         for (let index = 0; index < this.segmentsQueue.length; index++) {
             const segment = this.segmentsQueue[index];
 
@@ -318,11 +320,9 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
                 continue;
             }
 
-            if (
-                segment.priority <= this.settings.requiredSegmentsPriority &&
-                httpAllowed &&
-                !this.httpManager.isFailed(segment)
-            ) {
+            const tryHTTP = httpAllowed && segment.priority <= this.settings.requiredSegmentsPriority
+
+            if (tryHTTP && !this.httpManager.isFailed(segment)) {
                 // Download required segments over HTTP
                 if (this.httpManager.getActiveDownloadsCount() >= this.settings.simultaneousHttpDownloads) {
                     // Not enough HTTP download resources. Abort one of the HTTP downloads.
@@ -344,6 +344,12 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
                     updateSegmentsMap = true;
                     continue;
                 }
+            }
+
+            // We wanted to download a failed segment through HTTP, but we could not because of the timeout.
+            // Then we need to scedule another processing queue task
+            if (tryHTTP && this.httpManager.isFailed(segment)) {
+                scheduleNewProcessQueue = true
             }
 
             if (this.p2pManager.isDownloading(segment)) {
@@ -388,6 +394,15 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
                     this.debugSegments("P2P download", segment.priority, segment.url);
                 }
             }
+        }
+
+        if (scheduleNewProcessQueue) {
+            setTimeout(async () => {
+                if (this.masterSwarmId === undefined) return
+
+                const storageSegments = await this.segmentsStorage.getSegmentsMap(this.masterSwarmId);
+                this.processSegmentsQueue(storageSegments);
+            }, this.settings.httpFailedSegmentTimeout);
         }
 
         return updateSegmentsMap;
