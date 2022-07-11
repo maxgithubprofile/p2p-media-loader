@@ -258,6 +258,13 @@ export class SegmentManager {
         }
     }
 
+    public abortCurrentSegment () {
+        if (!this.segmentRequest) return
+
+        this.segmentRequest.onSuccess(undefined, 0);
+        this.segmentRequest = null;
+    }
+
     public async destroy(): Promise<void> {
         if (this.segmentRequest) {
             this.segmentRequest.onError("Loading aborted: object destroyed");

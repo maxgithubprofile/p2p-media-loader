@@ -26,6 +26,10 @@ export interface HlsJsEngineSettings {
     segments: Partial<SegmentManagerSettings>;
 }
 
+interface LoaderImplInterface {
+    abort(): void
+}
+
 export class Engine extends EventEmitter {
     public static isSupported(): boolean {
         return HybridLoader.isSupported();
@@ -33,6 +37,8 @@ export class Engine extends EventEmitter {
 
     private readonly loader: LoaderInterface;
     private readonly segmentManager: SegmentManager;
+
+    private latestLoaderImpl: LoaderImplInterface | undefined
 
     public constructor(settings: Partial<HlsJsEngineSettings> = {}) {
         super();
@@ -47,7 +53,7 @@ export class Engine extends EventEmitter {
 
     public createLoaderClass(): new () => unknown {
         const engine = this; // eslint-disable-line @typescript-eslint/no-this-alias
-        return class {
+        const loader = class implements LoaderImplInterface {
             private impl: HlsJsLoader;
             private context?: LoaderContext;
             private callbacks?: LoaderCallbacks<LoaderContext>;
@@ -55,6 +61,8 @@ export class Engine extends EventEmitter {
 
             constructor() {
                 this.impl = new HlsJsLoader(engine.segmentManager);
+                engine.setLatestLoaderImpl(this)
+
                 this.stats = this.impl.stats;
             }
 
@@ -86,10 +94,16 @@ export class Engine extends EventEmitter {
                 return engine;
             };
         };
+
+        return loader
     }
 
     public async destroy(): Promise<void> {
         await this.segmentManager.destroy();
+    }
+
+    public abortCurrentRequest (): void {
+        if (this.latestLoaderImpl) this.latestLoaderImpl.abort()
     }
 
     public getSettings(): {
@@ -114,6 +128,10 @@ export class Engine extends EventEmitter {
 
     public setPlayingSegmentByCurrentTime(playheadPosition: number): void {
         this.segmentManager.setPlayingSegmentByCurrentTime(playheadPosition);
+    }
+
+    private setLatestLoaderImpl (loader: LoaderImplInterface): void {
+        this.latestLoaderImpl = loader
     }
 }
 

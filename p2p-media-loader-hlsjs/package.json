@@ -23,33 +23,35 @@
     "url": "https://github.com/Chocobozzz/p2p-media-loader.git"
   },
   "peerDependencies": {
-    "@peertube/p2p-media-loader-core": "^1.0.3"
+    "@peertube/p2p-media-loader-core": "^1.0.7"
   },
   "dependencies": {
+    "debug": "^4.3.4",
     "events": "^3.3.0",
-    "m3u8-parser": "^4.6.0"
+    "m3u8-parser": "^4.7.1"
   },
   "devDependencies": {
+    "@types/debug": "^4.1.7",
     "@types/events": "^3.0.0",
-    "@types/mocha": "^8.2.2",
-    "@types/node": "^14.14.37",
-    "@types/sinon": "^9.0.11",
-    "@typescript-eslint/eslint-plugin": "^4.20.0",
-    "@typescript-eslint/parser": "^4.20.0",
+    "@types/mocha": "^9.1.1",
+    "@types/node": "^18.0.3",
+    "@types/sinon": "^10.0.12",
+    "@typescript-eslint/eslint-plugin": "^5.30.5",
+    "@typescript-eslint/parser": "^5.30.5",
     "browserify": "^17.0.0",
-    "eslint": "^7.23.0",
-    "eslint-config-prettier": "^8.1.0",
-    "hls.js": "^1.0.0",
+    "eslint": "^8.19.0",
+    "eslint-config-prettier": "^8.5.0",
+    "hls.js": "^1.1.5",
     "mkdirp": "^1.0.4",
-    "mocha": "^8.3.2",
-    "prettier": "^2.2.1",
-    "sinon": "^10.0.0",
-    "terser": "^5.6.1",
-    "ts-loader": "^8.1.0",
+    "mocha": "^10.0.0",
+    "prettier": "^2.7.1",
+    "sinon": "^14.0.0",
+    "terser": "^5.14.1",
+    "ts-loader": "^9.3.1",
     "ts-mockito": "^2.6.1",
-    "ts-node": "^9.1.1",
-    "typescript": "^4.2.3",
-    "webpack": "^5.28.0",
-    "webpack-cli": "^4.6.0"
+    "ts-node": "^10.8.2",
+    "typescript": "^4.7.4",
+    "webpack": "^5.73.0",
+    "webpack-cli": "^4.10.0"
   }
 }
