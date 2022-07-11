@@ -176,8 +176,8 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
 
         // stop all http requests and p2p downloads for segments that are not in the new load
         for (const segment of this.segmentsQueue) {
-            if (!segments.find((f) => f.url === segment.url)) {
-                this.debug("remove segment", segment.url);
+            if (!segments.find((f) => f.id === segment.id)) {
+                this.debug("remove segment", segment.id);
                 if (this.httpManager.isDownloading(segment)) {
                     updateSegmentsMap = true;
                     this.httpManager.abort(segment);
@@ -190,8 +190,8 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
 
         if (this.debug.enabled) {
             for (const segment of segments) {
-                if (!this.segmentsQueue.find((f) => f.url === segment.url)) {
-                    this.debug("add segment", segment.url);
+                if (!this.segmentsQueue.find((f) => f.id === segment.id)) {
+                    this.debug("add segment", segment.id);
                 }
             }
         }
@@ -329,7 +329,7 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
                     for (let i = this.segmentsQueue.length - 1; i > index; i--) {
                         const segmentToAbort = this.segmentsQueue[i];
                         if (this.httpManager.isDownloading(segmentToAbort)) {
-                            this.debugSegments("cancel HTTP download", segmentToAbort.priority, segmentToAbort.url);
+                            this.debugSegments("cancel HTTP download", segmentToAbort.priority, segmentToAbort.id);
                             this.httpManager.abort(segmentToAbort);
                             break;
                         }
@@ -340,7 +340,7 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
                     // Abort P2P download of the required segment if any and force HTTP download
                     const downloadedPieces = this.p2pManager.abort(segment);
                     this.httpManager.download(segment, downloadedPieces);
-                    this.debugSegments("HTTP download (priority)", segment.priority, segment.url);
+                    this.debugSegments("HTTP download (priority)", segment.priority, segment.id);
                     updateSegmentsMap = true;
                     continue;
                 }
@@ -369,7 +369,7 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
                     for (let i = this.segmentsQueue.length - 1; i > index; i--) {
                         const segmentToAbort = this.segmentsQueue[i];
                         if (this.p2pManager.isDownloading(segmentToAbort)) {
-                            this.debugSegments("cancel P2P download", segmentToAbort.priority, segmentToAbort.url);
+                            this.debugSegments("cancel P2P download", segmentToAbort.priority, segmentToAbort.id);
                             this.p2pManager.abort(segmentToAbort);
                             break;
                         }
@@ -378,7 +378,7 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
 
                 if (this.p2pManager.getActiveDownloadsCount() < this.settings.simultaneousP2PDownloads) {
                     if (this.p2pManager.download(segment)) {
-                        this.debugSegments("P2P download (priority)", segment.priority, segment.url);
+                        this.debugSegments("P2P download (priority)", segment.priority, segment.id);
                         continue;
                     }
                 }
@@ -391,7 +391,7 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
                 segment.priority <= this.settings.p2pDownloadMaxPriority
             ) {
                 if (this.p2pManager.download(segment)) {
-                    this.debugSegments("P2P download", segment.priority, segment.url);
+                    this.debugSegments("P2P download", segment.priority, segment.id);
                 }
             }
         }
@@ -442,7 +442,7 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
         }
 
         const segment = pendingQueue[Math.floor(Math.random() * pendingQueue.length)];
-        this.debugSegments("HTTP download (random)", segment.priority, segment.url);
+        this.debugSegments("HTTP download (random)", segment.priority, segment.id);
         this.httpManager.download(segment);
         this.p2pManager.sendSegmentsMapToAll(this.createSegmentsMap(storageSegments));
     };
@@ -461,7 +461,7 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
     };
 
     private onSegmentLoaded = async (segment: Segment, data: ArrayBuffer, peerId?: string) => {
-        this.debugSegments("segment loaded", segment.id, segment.url);
+        this.debugSegments("segment loaded", segment.id, segment.id);
 
         if (this.masterSwarmId === undefined) {
             return;
@@ -482,7 +482,7 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
     };
 
     private onSegmentError = async (segment: Segment, details: unknown, peerId?: string) => {
-        this.debugSegments("segment error", segment.id, segment.url, peerId, details);
+        this.debugSegments("segment error", segment.id, segment.id, peerId, details);
         this.emit(Events.SegmentError, segment, details, peerId);
         if (this.masterSwarmId !== undefined) {
             const storageSegments = await this.segmentsStorage.getSegmentsMap(this.masterSwarmId);
