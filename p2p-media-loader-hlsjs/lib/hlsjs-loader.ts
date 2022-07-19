@@ -63,7 +63,7 @@ export class HlsJsLoader {
     private loader: LoaderInterface | undefined
     private byteRange: { offset: number, length: number } | undefined
 
-    private debugId: string | undefined
+    private debugId = ""
 
     public constructor(private readonly segmentManager: SegmentManager) {
     }
@@ -93,7 +93,9 @@ export class HlsJsLoader {
             this.loader = this.segmentManager.loader;
 
             this.byteRange = getByteRange(this.context)
-            this.debugId =`${this.context.url} / ${this.byteRange!.offset}`
+            this.debugId = this.byteRange
+                ? `${this.context.url} / ${this.byteRange.offset}`
+                : this.context.url
 
             this.debug(`Loading fragment ${this.debugId}.`)
 
@@ -126,7 +128,7 @@ export class HlsJsLoader {
     }
 
     public abort(context: LoaderContext, callbacks?: LoaderCallbacks<LoaderContext>): void {
-        this.debug(`Aborting by hls.js fragment ${context.url} / ${this.byteRange!.offset} loading.`)
+        this.debug(`Aborting by hls.js fragment ${this.debugId} loading.`)
 
         this.cleanup()
 
