@@ -31,7 +31,7 @@ export class BandwidthApproximator {
     private lastBandwidth: NumberWithTime[] = [];
 
     public addBytes = (bytes: number, timeStamp: number): void => {
-        debug("Add %d bytes.", bytes)
+        debug("Add %d bytes.", bytes);
 
         this.lastBytes.push(new NumberWithTime(bytes, timeStamp));
         this.currentBytesSum += bytes;
@@ -58,7 +58,7 @@ export class BandwidthApproximator {
             }
         }
 
-        debug("Max bandwidth: %d.", maxBandwidth)
+        debug("Max bandwidth: %d.", maxBandwidth);
 
         return maxBandwidth;
     };

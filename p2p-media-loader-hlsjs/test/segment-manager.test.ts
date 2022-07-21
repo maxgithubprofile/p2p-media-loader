@@ -76,7 +76,7 @@ describe("SegmentManager", () => {
 
         let segmentLoadedListener: (segment: Segment) => void = () => {
             throw new Error("SegmentLoaded listener not set");
-        }
+        };
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         when(loader.on(Events.SegmentLoaded, anyFunction())).thenCall((_eventName, listener) => {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment

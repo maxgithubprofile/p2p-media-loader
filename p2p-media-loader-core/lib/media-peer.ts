@@ -199,8 +199,8 @@ export class MediaPeer extends STEEmitter<
                     command.s >= 0
                 ) {
                     this.downloadingSegment = new DownloadingSegment(command.i, command.s);
-                    this.emit("segment-start-load", this.downloadingSegment.id)
-                    this.emit("segment-size", this.downloadingSegment.id, this.downloadingSegment.size)
+                    this.emit("segment-start-load", this.downloadingSegment.id);
+                    this.emit("segment-size", this.downloadingSegment.id, this.downloadingSegment.size);
                     this.cancelResponseTimeoutTimer();
                 }
                 break;

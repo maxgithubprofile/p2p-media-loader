@@ -53,17 +53,17 @@ export class HlsJsLoader {
         },
     };
 
-    private boundOnSegmentAbort = this.onSegmentAbort.bind(this)
-    private boundOnUpdateSegmentSize = this.onUpdateSegmentSize.bind(this)
-    private boundOnUpdateLoaded = this.onUpdateLoaded.bind(this)
-    private boundOnSegmentStartLoad = this.onSegmentStartLoad.bind(this)
+    private boundOnSegmentAbort = this.onSegmentAbort.bind(this);
+    private boundOnUpdateSegmentSize = this.onUpdateSegmentSize.bind(this);
+    private boundOnUpdateLoaded = this.onUpdateLoaded.bind(this);
+    private boundOnSegmentStartLoad = this.onSegmentStartLoad.bind(this);
 
-    private context: LoaderContext | undefined
-    private callbacks: LoaderCallbacks<LoaderContext> | undefined
-    private loader: LoaderInterface | undefined
-    private byteRange: { offset: number, length: number } | undefined
+    private context: LoaderContext | undefined;
+    private callbacks: LoaderCallbacks<LoaderContext> | undefined;
+    private loader: LoaderInterface | undefined;
+    private byteRange: { offset: number, length: number } | undefined;
 
-    private debugId = ""
+    private debugId = "";
 
     public constructor(private readonly segmentManager: SegmentManager) {
     }
@@ -73,18 +73,18 @@ export class HlsJsLoader {
         _config: LoaderConfiguration,
         callbacks: LoaderCallbacks<LoaderContext>
     ): Promise<void> {
-        this.context = context
-        this.callbacks = callbacks
+        this.context = context;
+        this.callbacks = callbacks;
 
-        HlsJsLoader.updateStatsToStartLoading(this.stats)
+        HlsJsLoader.updateStatsToStartLoading(this.stats);
 
         if (((this.context as unknown) as { type: unknown }).type) {
-            this.debug(`Loading playlist ${this.context.url}.`)
+            this.debug(`Loading playlist ${this.context.url}.`);
 
             try {
                 const result = await this.segmentManager.loadPlaylist(this.context.url);
 
-                this.debug(`Playlist ${this.context.url} loaded.`)
+                this.debug(`Playlist ${this.context.url} loaded.`);
                 this.successPlaylist(result, this.context, this.callbacks);
             } catch (e) {
                 this.error(e as LoadError, this.context, this.callbacks);
@@ -92,35 +92,35 @@ export class HlsJsLoader {
         } else if (((this.context as unknown) as { frag: unknown }).frag) {
             this.loader = this.segmentManager.loader;
 
-            this.byteRange = getByteRange(this.context)
+            this.byteRange = getByteRange(this.context);
             this.debugId = this.byteRange
                 ? `${this.context.url} / ${this.byteRange.offset}`
-                : this.context.url
+                : this.context.url;
 
-            this.debug(`Loading fragment ${this.debugId}.`)
+            this.debug(`Loading fragment ${this.debugId}.`);
 
             // We may be downloading the segment by P2P, so we don"t care about the stats sent to HLS ABR
-            this.interval = setInterval(() => HlsJsLoader.updateStatsToStartLoading(this.stats), 200)
+            this.interval = setInterval(() => HlsJsLoader.updateStatsToStartLoading(this.stats), 200);
 
-            this.loader.on(Events.SegmentAbort, this.boundOnSegmentAbort)
-            this.loader.on(Events.SegmentSize, this.boundOnUpdateSegmentSize)
-            this.loader.on(Events.SegmentStartLoad, this.boundOnSegmentStartLoad)
+            this.loader.on(Events.SegmentAbort, this.boundOnSegmentAbort);
+            this.loader.on(Events.SegmentSize, this.boundOnUpdateSegmentSize);
+            this.loader.on(Events.SegmentStartLoad, this.boundOnSegmentStartLoad);
 
             try {
                 const result = await this.segmentManager.loadSegment(this.context.url, this.byteRange);
                 const { content } = result;
                 if (content) {
-                    this.successSegment(content, this.context!, this.callbacks!)
+                    this.successSegment(content, this.context, this.callbacks);
 
-                    this.debug(`Loaded fragment ${this.debugId}.`)
+                    this.debug(`Loaded fragment ${this.debugId}.`);
                 } else {
                     this.cleanup();
-                    this.debug(`Loaded empty fragment ${this.debugId} (aborted?).`)
+                    this.debug(`Loaded empty fragment ${this.debugId} (aborted?).`);
                 }
             } catch (e) {
                 setTimeout(() => this.error(e as LoadError, this.context!, this.callbacks!), 0);
 
-                this.debug(`Error in fragment ${this.debugId} loading.`, e)
+                this.debug(`Error in fragment ${this.debugId} loading.`, e);
             }
         } else {
             console.warn("Unknown load request", this.context);
@@ -128,11 +128,11 @@ export class HlsJsLoader {
     }
 
     public abort(context: LoaderContext, callbacks?: LoaderCallbacks<LoaderContext>): void {
-        if (this.stats.loaded || this.stats.aborted) return
+        if (this.stats.loaded || this.stats.aborted) return;
 
-        this.debug(`Aborting by hls.js fragment ${this.debugId} loading.`)
+        this.debug(`Aborting by hls.js fragment ${this.debugId} loading.`);
 
-        this.cleanup()
+        this.cleanup();
 
         this.segmentManager.abortSegment(context.url, getByteRange(context));
         this.stats.aborted = true;
@@ -207,61 +207,61 @@ export class HlsJsLoader {
 
     private cleanup () {
         if (this.interval) {
-            clearInterval(this.interval)
-            this.interval = undefined
+            clearInterval(this.interval);
+            this.interval = undefined;
         }
 
         if (this.loader) {
-            this.loader.off(Events.SegmentStartLoad, this.boundOnSegmentStartLoad)
-            this.loader.off(Events.SegmentSize, this.boundOnUpdateSegmentSize)
-            this.loader.off(Events.PieceBytesDownloaded, this.boundOnUpdateLoaded)
-            this.loader.off(Events.SegmentAbort, this.boundOnSegmentAbort)
+            this.loader.off(Events.SegmentStartLoad, this.boundOnSegmentStartLoad);
+            this.loader.off(Events.SegmentSize, this.boundOnUpdateSegmentSize);
+            this.loader.off(Events.PieceBytesDownloaded, this.boundOnUpdateLoaded);
+            this.loader.off(Events.SegmentAbort, this.boundOnSegmentAbort);
         }
     }
 
     private onSegmentAbort (segment: Segment) {
-        if (!this.isSegment(segment)) return
+        if (!this.isSegment(segment)) return;
 
-        this.debug(`Aborting by p2p-media-loader fragment ${this.debugId || ""}.`)
+        this.debug(`Aborting by p2p-media-loader fragment ${this.debugId || ""}.`);
         this.stats.aborted = true;
 
-        const onAbort = this.callbacks?.onAbort
+        const onAbort = this.callbacks?.onAbort;
         if (onAbort) {
-            onAbort(this.stats, this.context as LoaderContext, undefined)
+            onAbort(this.stats, this.context as LoaderContext, undefined);
         }
 
-        this.cleanup()
+        this.cleanup();
     }
 
     private onUpdateSegmentSize (segment: Segment, size: number) {
-        if (!this.isSegment(segment)) return
+        if (!this.isSegment(segment)) return;
 
-        this.stats.total = size
+        this.stats.total = size;
     }
 
     private onUpdateLoaded (_type: unknown, segment: Segment, bytes: number) {
-        if (!this.isSegment(segment)) return
+        if (!this.isSegment(segment)) return;
 
-        this.stats.loaded += bytes
+        this.stats.loaded += bytes;
     }
 
     private onSegmentStartLoad (method: "http" | "p2p", segment: Segment) {
-        if (!this.interval || method !== "http" || !this.isSegment(segment)) return
+        if (!this.interval || method !== "http" || !this.isSegment(segment)) return;
 
-        clearInterval(this.interval)
-        this.interval = undefined
+        clearInterval(this.interval);
+        this.interval = undefined;
 
         HlsJsLoader.updateStatsToStartLoading(this.stats);
 
-        (this.loader as LoaderInterface).on(Events.PieceBytesDownloaded, this.boundOnUpdateLoaded)
+        (this.loader as LoaderInterface).on(Events.PieceBytesDownloaded, this.boundOnUpdateLoaded);
     };
 
     private isSegment (segment: Segment) {
-        return segment.url === (this.context as LoaderContext).url && segment.range === byteRangeToString(this.byteRange)
+        return segment.url === (this.context as LoaderContext).url && segment.range === byteRangeToString(this.byteRange);
     }
 
     private static updateStatsToStartLoading (stats: LoaderStats) {
-        if (stats.aborted) return
+        if (stats.aborted) return;
 
         const start = performance.now();
         stats.loading.start = start;

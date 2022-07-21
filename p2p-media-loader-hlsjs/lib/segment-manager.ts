@@ -17,7 +17,7 @@
 import Debug from "debug";
 import { Events, Segment, LoaderInterface, XhrSetupCallback } from "@peertube/p2p-media-loader-core";
 import { Manifest, Parser } from "m3u8-parser";
-import { ByteRange, byteRangeToString, compareByteRanges } from "./byte-range"
+import { ByteRange, byteRangeToString, compareByteRanges } from "./byte-range";
 import { AssetsStorage } from "./engine";
 
 const defaultSettings: SegmentManagerSettings = {
@@ -226,7 +226,7 @@ export class SegmentManager {
             (segment) => segment.segmentUrl === url && compareByteRanges(segment.segmentByteRange, byteRange)
         );
 
-        this.debug('Set playing segment to index %d', urlIndex, this.playQueue)
+        this.debug("Set playing segment to index %d", urlIndex, this.playQueue);
 
         if (urlIndex >= 0) {
             this.playQueue = this.playQueue.slice(urlIndex);
@@ -264,7 +264,7 @@ export class SegmentManager {
     }
 
     public abortCurrentSegment () {
-        if (!this.segmentRequest) return
+        if (!this.segmentRequest) return;
 
         this.segmentRequest.onSuccess(undefined, 0);
         this.segmentRequest = null;
@@ -298,7 +298,7 @@ export class SegmentManager {
             this.segmentRequest.segmentByteRange
             );
 
-        this.debug('update segments', segmentLocation)
+        this.debug("update segments", segmentLocation);
 
         if (segmentLocation) {
             void this.loadSegments(segmentLocation.playlist, segmentLocation.segmentIndex, false);
@@ -363,7 +363,7 @@ export class SegmentManager {
 
         const masterSwarmId = this.getMasterSwarmId();
 
-        this.debug('load segments', priority, segmentIndex)
+        this.debug("load segments", priority, segmentIndex);
 
         for (
             let i = segmentIndex;

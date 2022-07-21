@@ -186,6 +186,7 @@ export class P2PMediaManager extends STEEmitter<
     private onTrackerPeer = (trackerPeer: any): void => {
         this.debug("tracker peer", trackerPeer.id, trackerPeer);
 
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         if (this.peers.has(trackerPeer.id)) {
             this.debug("tracker peer already connected", trackerPeer.id, trackerPeer);
             trackerPeer.destroy();

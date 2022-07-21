@@ -102,11 +102,11 @@ export class HttpMediaManager extends FilteredEmitter {
             request.segmentUrl !== this.buildSegmentUrl(segment)
         ) {
             this.debug("aborting http segment abort because the segment is now in a high priority", segment.id);
-            this.abort(segment)
-            this.download(segment)
+            this.abort(segment);
+            this.download(segment);
         }
 
-    }
+    };
 
     public abort = (segment: Segment): void => {
         const request = this.xhrRequests.get(segment.id);

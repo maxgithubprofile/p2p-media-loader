@@ -20,5 +20,7 @@ import { EventEmitter } from "events";
 
 export class STEEmitter<T extends string | symbol> extends EventEmitter {
     public on = (event: T, listener: (...args: any[]) => void): this => super.on(event, listener);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     public emit = (event: T, ...args: any[]): boolean => super.emit(event, ...args);
 }

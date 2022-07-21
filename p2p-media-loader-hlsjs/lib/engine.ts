@@ -19,7 +19,7 @@ import { Events, LoaderInterface, HybridLoader, HybridLoaderSettings } from "@pe
 import { SegmentManager, SegmentManagerSettings } from "./segment-manager";
 import { HlsJsLoader } from "./hlsjs-loader";
 import type { LoaderCallbacks, LoaderConfiguration, LoaderContext, LoaderStats } from "hls.js";
-import { ByteRange } from "./byte-range"
+import { ByteRange } from "./byte-range";
 
 export interface HlsJsEngineSettings {
     loader: Partial<HybridLoaderSettings>;
@@ -38,7 +38,7 @@ export class Engine extends EventEmitter {
     private readonly loader: LoaderInterface;
     private readonly segmentManager: SegmentManager;
 
-    private latestLoaderImpl: LoaderImplInterface | undefined
+    private latestLoaderImpl: LoaderImplInterface | undefined;
 
     public constructor(settings: Partial<HlsJsEngineSettings> = {}) {
         super();
@@ -61,7 +61,7 @@ export class Engine extends EventEmitter {
 
             constructor() {
                 this.impl = new HlsJsLoader(engine.segmentManager);
-                engine.setLatestLoaderImpl(this)
+                engine.setLatestLoaderImpl(this);
 
                 this.stats = this.impl.stats;
             }
@@ -95,7 +95,7 @@ export class Engine extends EventEmitter {
             };
         };
 
-        return loader
+        return loader;
     }
 
     public async destroy(): Promise<void> {
@@ -104,8 +104,8 @@ export class Engine extends EventEmitter {
 
     public abortCurrentRequest (): void {
         if (this.latestLoaderImpl) {
-            this.latestLoaderImpl.abort()
-            this.latestLoaderImpl = undefined
+            this.latestLoaderImpl.abort();
+            this.latestLoaderImpl = undefined;
         }
     }
 
@@ -134,7 +134,7 @@ export class Engine extends EventEmitter {
     }
 
     private setLatestLoaderImpl (loader: LoaderImplInterface): void {
-        this.latestLoaderImpl = loader
+        this.latestLoaderImpl = loader;
     }
 }
 

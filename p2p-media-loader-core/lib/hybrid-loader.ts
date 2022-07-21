@@ -101,7 +101,7 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
         this.httpManager.on("segment-error", this.onSegmentError);
         this.httpManager.on("segment-size", this.onSegmentSize);
         this.httpManager.on("bytes-downloaded", (segment: Segment, bytes: number) => {
-            this.onPieceBytesDownloaded("http", segment, bytes)
+            this.onPieceBytesDownloaded("http", segment, bytes);
         });
 
         this.p2pManager = this.createP2PManager();
@@ -234,7 +234,7 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
     };
 
     private processSegmentsQueue = (storageSegments: Map<string, { segment: Segment }>) => {
-        const currentPriority = this.segmentsQueue.length > 0 ? this.segmentsQueue[0].priority : 0
+        const currentPriority = this.segmentsQueue.length > 0 ? this.segmentsQueue[0].priority : 0;
 
         this.debugSegments(`process segments queue. priority: ${currentPriority}, queue length: ${this.segmentsQueue.length}`);
 
@@ -270,7 +270,7 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
             }
         }
 
-        let scheduleNewProcessQueue = false
+        let scheduleNewProcessQueue = false;
 
         for (let index = 0; index < this.segmentsQueue.length; index++) {
             const segment = this.segmentsQueue[index];
@@ -285,7 +285,7 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
                 continue;
             }
 
-            const tryHTTP = httpAllowed && segment.priority <= this.settings.requiredSegmentsPriority
+            const tryHTTP = httpAllowed && segment.priority <= this.settings.requiredSegmentsPriority;
 
             if (tryHTTP && !this.httpManager.isFailed(segment)) {
                 // Download required segments over HTTP
@@ -314,7 +314,7 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
             // We wanted to download a failed segment through HTTP, but we could not because of the timeout.
             // Then we need to schedule another processing queue task
             if (tryHTTP && this.httpManager.isFailed(segment)) {
-                scheduleNewProcessQueue = true
+                scheduleNewProcessQueue = true;
             }
 
             if (this.p2pManager.isDownloading(segment)) {
@@ -363,7 +363,7 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
 
         if (scheduleNewProcessQueue) {
             setTimeout(async () => {
-                if (this.masterSwarmId === undefined) return
+                if (this.masterSwarmId === undefined) return;
 
                 const storageSegments = await this.segmentsStorage.getSegmentsMap(this.masterSwarmId);
                 this.processSegmentsQueue(storageSegments);
@@ -544,7 +544,7 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
     };
 
     private initRandomDownloadIntervalIfNeeded = () => {
-        if (this.httpRandomDownloadInterval !== undefined) return
+        if (this.httpRandomDownloadInterval !== undefined) return;
 
         // Do once on first call
         this.httpRandomDownloadInterval = setInterval(
@@ -569,7 +569,7 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
     };
 
     private abortUnknownSegments = (segments: Segment[]) => {
-        let updateSegmentsMap = false
+        let updateSegmentsMap = false;
 
         for (const segment of this.segmentsQueue) {
             if (!segments.find((f) => f.id === segment.id)) {
@@ -584,7 +584,7 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
             }
         }
 
-        return updateSegmentsMap
+        return updateSegmentsMap;
     };
 }
 

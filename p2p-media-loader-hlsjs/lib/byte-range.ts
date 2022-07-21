@@ -1,4 +1,4 @@
-import { LoaderContext } from "hls.js"
+import { LoaderContext } from "hls.js";
 
 export type ByteRange = { length: number; offset: number } | undefined;
 
