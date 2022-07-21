@@ -33,6 +33,7 @@ const defaultSettings: HybridLoaderSettings = {
     consumeOnly: false,
 
     requiredSegmentsPriority: 1,
+    skipSegmentBuilderPriority: 1,
 
     simultaneousHttpDownloads: 2,
     httpDownloadProbability: 0.1,
@@ -725,6 +726,12 @@ export type HybridLoaderSettings = {
      * Allow to modify the segment URL before HTTP request.
      */
     segmentUrlBuilder?: SegmentUrlBuilder;
+
+    /**
+     * Segments below or equal to this priority won't use segmentUrlBuilder
+     * Segment requests with a priority changed below or equal to this priority will be aborted and run again without using the segment builder
+     */
+    skipSegmentBuilderPriority: number;
 
     /**
      * A storage for the downloaded segments.

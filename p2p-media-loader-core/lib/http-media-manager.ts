@@ -34,6 +34,7 @@ export class HttpMediaManager extends FilteredEmitter {
             httpFailedSegmentTimeout: number;
             httpUseRanges: boolean;
             requiredSegmentsPriority: number;
+            skipSegmentBuilderPriority: number;
             segmentValidator?: SegmentValidatorCallback;
             xhrSetup?: XhrSetupCallback;
             segmentUrlBuilder?: SegmentUrlBuilder;
@@ -51,7 +52,9 @@ export class HttpMediaManager extends FilteredEmitter {
 
         this.emit("segment-start-load", segment);
 
-        const segmentUrl = this.buildSegmentUrl(segment);
+        const segmentUrl = segment.priority <= this.settings.skipSegmentBuilderPriority
+            ? segment.url
+            : this.buildSegmentUrl(segment);
 
         this.debug("http segment download", segmentUrl);
 
@@ -97,11 +100,11 @@ export class HttpMediaManager extends FilteredEmitter {
         // Segment is now in high priority
         // If the segment URL changed, retry the request with the new URL
         if (
-            segment.priority <= this.settings.requiredSegmentsPriority &&
-            request.initialPriority > this.settings.requiredSegmentsPriority &&
-            request.segmentUrl !== this.buildSegmentUrl(segment)
+            segment.priority <= this.settings.skipSegmentBuilderPriority &&
+            request.initialPriority > this.settings.skipSegmentBuilderPriority &&
+            request.segmentUrl !== segment.url
         ) {
-            this.debug("aborting http segment abort because the segment is now in a high priority", segment.id);
+            this.debug("aborting http segment because the segment is now in a high priority", segment.id);
             this.abort(segment);
             this.download(segment);
         }
