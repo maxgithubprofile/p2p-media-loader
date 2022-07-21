@@ -103,7 +103,10 @@ export class Engine extends EventEmitter {
     }
 
     public abortCurrentRequest (): void {
-        if (this.latestLoaderImpl) this.latestLoaderImpl.abort()
+        if (this.latestLoaderImpl) {
+            this.latestLoaderImpl.abort()
+            this.latestLoaderImpl = undefined
+        }
     }
 
     public getSettings(): {

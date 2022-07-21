@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Debug from "debug";
 import { Events, Segment, LoaderInterface, XhrSetupCallback } from "@peertube/p2p-media-loader-core";
 import { Manifest, Parser } from "m3u8-parser";
 import { ByteRange, byteRangeToString, compareByteRanges } from "./byte-range"
@@ -26,6 +27,8 @@ const defaultSettings: SegmentManagerSettings = {
 };
 
 export class SegmentManager {
+    private readonly debug = Debug("p2pml:segment-manager");
+
     public readonly loader: LoaderInterface;
     private masterPlaylist: Playlist | null = null;
     private readonly variantPlaylists = new Map<string, Playlist>();
@@ -223,6 +226,8 @@ export class SegmentManager {
             (segment) => segment.segmentUrl === url && compareByteRanges(segment.segmentByteRange, byteRange)
         );
 
+        this.debug('Set playing segment to index %d', urlIndex, this.playQueue)
+
         if (urlIndex >= 0) {
             this.playQueue = this.playQueue.slice(urlIndex);
             this.playQueue[0].playPosition = { start, duration };
@@ -287,10 +292,14 @@ export class SegmentManager {
             return;
         }
 
+
         const segmentLocation = this.getSegmentLocation(
             this.segmentRequest.segmentUrl,
             this.segmentRequest.segmentByteRange
-        );
+            );
+
+        this.debug('update segments', segmentLocation)
+
         if (segmentLocation) {
             void this.loadSegments(segmentLocation.playlist, segmentLocation.segmentIndex, false);
         }
@@ -353,6 +362,8 @@ export class SegmentManager {
         let priority = Math.max(0, this.playQueue.length - 1);
 
         const masterSwarmId = this.getMasterSwarmId();
+
+        this.debug('load segments', priority, segmentIndex)
 
         for (
             let i = segmentIndex;

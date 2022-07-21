@@ -110,7 +110,7 @@ export class HlsJsLoader {
                 const result = await this.segmentManager.loadSegment(this.context.url, this.byteRange);
                 const { content } = result;
                 if (content) {
-                    setTimeout(() => this.successSegment(content, this.context!, this.callbacks!), 0);
+                    this.successSegment(content, this.context!, this.callbacks!)
 
                     this.debug(`Loaded fragment ${this.debugId}.`)
                 } else {
@@ -128,6 +128,8 @@ export class HlsJsLoader {
     }
 
     public abort(context: LoaderContext, callbacks?: LoaderCallbacks<LoaderContext>): void {
+        if (this.stats.loaded || this.stats.aborted) return
+
         this.debug(`Aborting by hls.js fragment ${this.debugId} loading.`)
 
         this.cleanup()

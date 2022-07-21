@@ -139,28 +139,7 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
     };
 
     public load = async (segments: Segment[], streamSwarmId: string): Promise<void> => {
-        if (this.httpRandomDownloadInterval === undefined) {
-            // Do once on first call
-            this.httpRandomDownloadInterval = setInterval(
-                this.downloadRandomSegmentOverHttp,
-                this.settings.httpDownloadProbabilityInterval
-            );
-
-            if (
-                this.settings.httpDownloadInitialTimeout > 0 &&
-                this.settings.httpDownloadInitialTimeoutPerSegment > 0
-            ) {
-                // Initialize initial HTTP download timeout (i.e. download initial segments over P2P)
-                this.debugSegments(
-                    "enable initial HTTP download timeout",
-                    this.settings.httpDownloadInitialTimeout,
-                    "per segment",
-                    this.settings.httpDownloadInitialTimeoutPerSegment
-                );
-                this.httpDownloadInitialTimeoutTimestamp = this.now();
-                setTimeout(this.processInitialSegmentTimeout, this.settings.httpDownloadInitialTimeoutPerSegment + 100);
-            }
-        }
+        this.initRandomDownloadIntervalIfNeeded();
 
         if (segments.length > 0) {
             this.masterSwarmId = segments[0].masterSwarmId;
@@ -172,21 +151,8 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
 
         this.debug("load segments");
 
-        let updateSegmentsMap = false;
-
         // stop all http requests and p2p downloads for segments that are not in the new load
-        for (const segment of this.segmentsQueue) {
-            if (!segments.find((f) => f.id === segment.id)) {
-                this.debug("remove segment", segment.id);
-                if (this.httpManager.isDownloading(segment)) {
-                    updateSegmentsMap = true;
-                    this.httpManager.abort(segment);
-                } else {
-                    this.p2pManager.abort(segment);
-                }
-                this.emit(Events.SegmentAbort, segment);
-            }
-        }
+        let updateSegmentsMap = this.abortUnknownSegments(segments);
 
         if (this.debug.enabled) {
             for (const segment of segments) {
@@ -268,10 +234,9 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
     };
 
     private processSegmentsQueue = (storageSegments: Map<string, { segment: Segment }>) => {
-        this.debugSegments(
-            "process segments queue. priority",
-            this.segmentsQueue.length > 0 ? this.segmentsQueue[0].priority : 0
-        );
+        const currentPriority = this.segmentsQueue.length > 0 ? this.segmentsQueue[0].priority : 0
+
+        this.debugSegments(`process segments queue. priority: ${currentPriority}, queue length: ${this.segmentsQueue.length}`);
 
         if (this.masterSwarmId === undefined || this.segmentsQueue.length === 0) {
             return false;
@@ -347,7 +312,7 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
             }
 
             // We wanted to download a failed segment through HTTP, but we could not because of the timeout.
-            // Then we need to scedule another processing queue task
+            // Then we need to schedule another processing queue task
             if (tryHTTP && this.httpManager.isFailed(segment)) {
                 scheduleNewProcessQueue = true
             }
@@ -576,6 +541,50 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
 
     private now = () => {
         return performance.now();
+    };
+
+    private initRandomDownloadIntervalIfNeeded = () => {
+        if (this.httpRandomDownloadInterval !== undefined) return
+
+        // Do once on first call
+        this.httpRandomDownloadInterval = setInterval(
+            this.downloadRandomSegmentOverHttp,
+            this.settings.httpDownloadProbabilityInterval
+        );
+
+        if (
+            this.settings.httpDownloadInitialTimeout > 0 &&
+            this.settings.httpDownloadInitialTimeoutPerSegment > 0
+        ) {
+            // Initialize initial HTTP download timeout (i.e. download initial segments over P2P)
+            this.debugSegments(
+                "enable initial HTTP download timeout",
+                this.settings.httpDownloadInitialTimeout,
+                "per segment",
+                this.settings.httpDownloadInitialTimeoutPerSegment
+            );
+            this.httpDownloadInitialTimeoutTimestamp = this.now();
+            setTimeout(this.processInitialSegmentTimeout, this.settings.httpDownloadInitialTimeoutPerSegment + 100);
+        }
+    };
+
+    private abortUnknownSegments = (segments: Segment[]) => {
+        let updateSegmentsMap = false
+
+        for (const segment of this.segmentsQueue) {
+            if (!segments.find((f) => f.id === segment.id)) {
+                this.debug("remove segment", segment.id);
+                if (this.httpManager.isDownloading(segment)) {
+                    updateSegmentsMap = true;
+                    this.httpManager.abort(segment);
+                } else {
+                    this.p2pManager.abort(segment);
+                }
+                this.emit(Events.SegmentAbort, segment);
+            }
+        }
+
+        return updateSegmentsMap
     };
 }
 

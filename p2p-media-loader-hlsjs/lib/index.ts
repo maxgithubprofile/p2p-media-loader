@@ -21,7 +21,10 @@ export const version = "0.6.2";
 export * from "./engine";
 export * from "./segment-manager";
 
+import Debug from 'debug';
 import { Engine } from "./engine";
+
+const debug = Debug("p2pml:hlsjs-init");
 
 declare const videojs: any;
 
@@ -123,6 +126,8 @@ export function initJwPlayer(player: any, hlsjsConfig: any): void {
 
 function initHlsJsEvents(player: any, engine: Engine): void {
     player.on("hlsFragChanged", (_event: string, data: any) => {
+        debug("HLS Frag changed.", data)
+
         const frag = data.frag;
         const byteRange =
             frag.byteRange.length !== 2
@@ -143,7 +148,9 @@ function initHlsJsEvents(player: any, engine: Engine): void {
             }
         }
     });
-    player.on('seeked', () => {
+    player.on('seeking', () => {
+        debug("Player seeking.")
+
         // Abort current HTTP/P2P request so HLS is not stuck with a P2P request when moving current video player time
         // to a previously loaded fragment
         engine.abortCurrentRequest();
