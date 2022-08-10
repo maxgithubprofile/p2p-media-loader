@@ -15,7 +15,7 @@
  */
 
 import { EventEmitter } from "events";
-import { Events, LoaderInterface, HybridLoader, HybridLoaderSettings } from "@peertube/p2p-media-loader-core";
+import { Events, LoaderInterface, HybridLoader, HybridLoaderSettings } from "p2p-media-loader-core-basyton";
 import { SegmentManager, SegmentManagerSettings } from "./segment-manager";
 import { HlsJsLoader } from "./hlsjs-loader";
 import type { LoaderCallbacks, LoaderConfiguration, LoaderContext, LoaderStats } from "hls.js";
@@ -44,7 +44,7 @@ export class Engine extends EventEmitter {
         super();
 
         this.loader = new HybridLoader(settings.loader);
-        this.segmentManager = new SegmentManager(this.loader, settings.segments);
+        this.segmentManager = new SegmentManager(this.loader, settings.segments, settings.loader);
 
         Object.keys(Events)
             .map((eventKey) => Events[eventKey as keyof typeof Events])

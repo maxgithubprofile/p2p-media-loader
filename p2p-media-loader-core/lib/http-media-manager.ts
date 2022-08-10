@@ -25,8 +25,10 @@ class FilteredEmitter extends STEEmitter<
 > { }
 
 export class HttpMediaManager extends FilteredEmitter {
-    private xhrRequests = new Map<string, { xhr: XMLHttpRequest; segment: Segment, initialPriority: number, segmentUrl: string }>();
+    
+    private fetchRequests = new Map<string, { request?: Promise<Response>; fetchAbort: AbortController, segment: Segment, initialPriority: number, segmentUrl: string }>();
     private failedSegments = new Map<string, number>();
+    private fetch: typeof fetch = (...args) => fetch(...args);
     private debug = Debug("p2pml:http-media-manager");
 
     public constructor(
@@ -38,9 +40,14 @@ export class HttpMediaManager extends FilteredEmitter {
             segmentValidator?: SegmentValidatorCallback;
             xhrSetup?: XhrSetupCallback;
             segmentUrlBuilder?: SegmentUrlBuilder;
+            localTransport?: typeof fetch;
         }
     ) {
         super();
+
+        if (settings.localTransport) {
+            this.fetch = settings.localTransport;
+        }
     }
 
     public download = (segment: Segment, downloadedPieces?: ArrayBuffer[]): void => {
@@ -60,12 +67,12 @@ export class HttpMediaManager extends FilteredEmitter {
 
         segment.requestUrl = segmentUrl;
 
-        const xhr = new XMLHttpRequest();
-        xhr.open("GET", segmentUrl, true);
-        xhr.responseType = "arraybuffer";
+        const fetchAbort = new AbortController();
+        const signal = fetchAbort.signal;
+        const headers = new Headers();
 
         if (segment.range) {
-            xhr.setRequestHeader("Range", segment.range);
+            headers.append("Range", segment.range);
             downloadedPieces = undefined; // TODO: process downloadedPieces for segments with range headers too
         } else if (downloadedPieces !== undefined && this.settings.httpUseRanges) {
             let bytesDownloaded = 0;
@@ -73,25 +80,64 @@ export class HttpMediaManager extends FilteredEmitter {
                 bytesDownloaded += piece.byteLength;
             }
 
-            xhr.setRequestHeader("Range", `bytes=${bytesDownloaded}-`);
+            headers.append("Range", `bytes=${bytesDownloaded}-`);
 
             this.debug("continue download from", bytesDownloaded);
         } else {
             downloadedPieces = undefined;
         }
 
-        this.setupXhrEvents(xhr, segment, downloadedPieces);
+        const fetchRequest = this.fetch(segmentUrl, { headers, signal });
 
-        if (this.settings.xhrSetup) {
-            this.settings.xhrSetup(xhr, segmentUrl);
-        }
+        void this.setupFetchEvents(fetchRequest, segment, downloadedPieces)
+            .catch((err: Error) => {
+                /**
+                 * Handling all fetch errors here
+                 */
 
-        this.xhrRequests.set(segment.id, { xhr, segment, initialPriority: segment.priority, segmentUrl });
-        xhr.send();
+                if (err.name === "AbortError") {
+                    /**
+                     * This may happen on video seeking
+                     * or halted video playing. In most
+                     * cases it is normal. For more info
+                     * look AbortController...
+                     */
+                    this.debug("Segment loading was aborted by user", segment);
+                    return;
+                }
+
+                if (err.message === "network error") {
+                    this.debug("Segment loading is unavailable. No internet", segment);
+
+                    const netError = Error("NETWORK_ERROR");
+
+                    this.segmentFailure(segment, netError, segment.url);
+                    return;
+                }
+
+                if (err.message === "Failed to fetch") {
+                    /**
+                     * This error might occur in next cases:
+                     *   - Network error
+                     *   - Response with erroneous CORS headers
+                     *   - Unsupported protocol, e.g. HTTPS
+                     *   - Wrong request method
+                     */
+
+                    this.debug("Segment fetch failed", segment);
+
+                    const fetchError = Error("FETCH_FAILED");
+
+                    this.segmentFailure(segment, fetchError, segment.url);
+                    return;
+                }
+            });
+
+        this.fetchRequests.set(segment.id, { fetchAbort, segment, initialPriority: segment.priority, segmentUrl });
     };
 
     public updatePriority = (segment: Segment): void => {
-        const request = this.xhrRequests.get(segment.id);
+        const request = this.fetchRequests.get(segment.id);
 
         if (!request) {
             throw new Error("Cannot update priority of not downloaded segment " + segment.id);
@@ -100,29 +146,30 @@ export class HttpMediaManager extends FilteredEmitter {
         // Segment is now in high priority
         // If the segment URL changed, retry the request with the new URL
         if (
-            segment.priority <= this.settings.skipSegmentBuilderPriority &&
-            request.initialPriority > this.settings.skipSegmentBuilderPriority &&
-            request.segmentUrl !== segment.url
+            segment.priority <= this.settings.requiredSegmentsPriority &&
+            request.initialPriority > this.settings.requiredSegmentsPriority &&
+            request.segmentUrl !== this.buildSegmentUrl(segment)
         ) {
-            this.debug("aborting http segment because the segment is now in a high priority", segment.id);
-            this.abort(segment);
-            this.download(segment);
+            this.debug("aborting http segment abort because the segment is now in a high priority", segment.id);
+            this.abort(segment)
+            this.download(segment)
         }
 
     };
 
     public abort = (segment: Segment): void => {
-        const request = this.xhrRequests.get(segment.id);
+        const request = this.fetchRequests.get(segment.id);
 
         if (request) {
-            request.xhr.abort();
-            this.xhrRequests.delete(segment.id);
+
+            request.fetchAbort.abort();
+            this.fetchRequests.delete(segment.id);
             this.debug("http segment abort", segment.id);
         }
     };
 
     public isDownloading = (segment: Segment): boolean => {
-        return this.xhrRequests.has(segment.id);
+        return this.fetchRequests.has(segment.id);
     };
 
     public isFailed = (segment: Segment): boolean => {
@@ -131,90 +178,91 @@ export class HttpMediaManager extends FilteredEmitter {
     };
 
     public getActiveDownloads = (): ReadonlyMap<string, { segment: Segment }> => {
-        return this.xhrRequests;
+        return this.fetchRequests;
     };
 
     public getActiveDownloadsCount = (): number => {
-        return this.xhrRequests.size;
+        return this.fetchRequests.size;
     };
 
     public destroy = (): void => {
-        this.xhrRequests.forEach((request) => request.xhr.abort());
-        this.xhrRequests.clear();
+        this.fetchRequests.forEach((request) => request.fetchAbort.abort());
+        this.fetchRequests.clear();
     };
 
-    private setupXhrEvents = (xhr: XMLHttpRequest, segment: Segment, downloadedPieces?: ArrayBuffer[]) => {
-        let prevBytesLoaded = 0;
+    private setupFetchEvents = async (fetch: Promise<Response>, segment: Segment, downloadedPieces?: ArrayBuffer[]) => {
+        const fetchResponse = await fetch as Response & { body: ReadableStream };
 
-        xhr.addEventListener("progress", (event) => {
-            const bytesLoaded = event.loaded - prevBytesLoaded;
-            this.emit("bytes-downloaded", segment, bytesLoaded);
-            prevBytesLoaded = event.loaded;
+        const dataReader = fetchResponse.body.getReader();
 
-            if (event.lengthComputable) {
-                this.emit("segment-size", segment, event.total);
+        const contentLengthStr = fetchResponse.headers.get("Content-Length") as string;
+
+        
+
+        const contentLength = Number.parseFloat(contentLengthStr);
+
+        const dataBytes: Uint8Array = new Uint8Array(contentLength);
+
+        let nextChunkPos = 0;
+
+        if (Array.isArray(downloadedPieces) && fetchResponse.status === 206) {
+            for (const piece of downloadedPieces) {
+                const pieceBytes = new Uint8Array(piece);
+
+                dataBytes.set(pieceBytes, nextChunkPos);
+
+                nextChunkPos = piece.byteLength;
             }
-        });
+        }
 
-        xhr.addEventListener("load", async (event) => {
-            if (xhr.status < 200 || xhr.status >= 300) {
-                this.segmentFailure(segment, event, xhr);
-                return;
+        let read;
+
+        while (!(read = await dataReader.read()).done) {
+            const chunkBytes = read.value;
+
+            dataBytes.set(chunkBytes, nextChunkPos);
+
+            nextChunkPos += chunkBytes.length;
+
+            /** Events emitters */
+
+            this.emit("bytes-downloaded", segment, chunkBytes.length);
+
+            if (contentLength) {
+                this.emit("segment-size", segment, contentLength);
             }
+        }
 
-            let data = xhr.response as ArrayBuffer;
+        if (fetchResponse.status < 200 || fetchResponse.status >= 300) {
+            const err = Error(`Segment failure with HTTP code ${fetchResponse.status}`);
+            this.segmentFailure(segment, err, fetchResponse.url);
+            return;
+        }
 
-            if (downloadedPieces !== undefined && xhr.status === 206) {
-                let bytesDownloaded = 0;
-                for (const piece of downloadedPieces) {
-                    bytesDownloaded += piece.byteLength;
-                }
-
-                const segmentData = new Uint8Array(bytesDownloaded + data.byteLength);
-                let offset = 0;
-
-                for (const piece of downloadedPieces) {
-                    segmentData.set(new Uint8Array(piece), offset);
-                    offset += piece.byteLength;
-                }
-
-                segmentData.set(new Uint8Array(data), offset);
-                data = segmentData.buffer;
-            }
-
-            await this.segmentDownloadFinished(segment, data, xhr);
-        });
-
-        xhr.addEventListener("error", (event: unknown) => {
-            this.segmentFailure(segment, event, xhr);
-        });
-
-        xhr.addEventListener("timeout", (event: unknown) => {
-            this.segmentFailure(segment, event, xhr);
-        });
+        await this.segmentDownloadFinished(segment, dataBytes.buffer, fetchResponse);
     };
 
-    private segmentDownloadFinished = async (segment: Segment, data: ArrayBuffer, xhr: XMLHttpRequest) => {
-        segment.responseUrl = xhr.responseURL === null ? undefined : xhr.responseURL;
+    private segmentDownloadFinished = async (segment: Segment, data: ArrayBuffer, fetchResponse: Response) => {
+        segment.responseUrl = fetchResponse.url;
 
         if (this.settings.segmentValidator) {
             try {
                 await this.settings.segmentValidator({ ...segment, data: data }, "http");
-            } catch (error) {
+            } catch (error : any) {
                 this.debug("segment validator failed", error);
-                this.segmentFailure(segment, error, xhr);
+                this.segmentFailure(segment, error, fetchResponse.url);
                 return;
             }
         }
 
-        this.xhrRequests.delete(segment.id);
+        this.fetchRequests.delete(segment.id);
         this.emit("segment-loaded", segment, data);
     };
 
-    private segmentFailure = (segment: Segment, error: unknown, xhr: XMLHttpRequest) => {
-        segment.responseUrl = xhr.responseURL === null ? undefined : xhr.responseURL;
+    private segmentFailure = (segment: Segment, error: Error, responseUrl: string) => {
+        segment.responseUrl = responseUrl;
 
-        this.xhrRequests.delete(segment.id);
+        this.fetchRequests.delete(segment.id);
         this.failedSegments.set(segment.id, this.now() + this.settings.httpFailedSegmentTimeout);
         this.emit("segment-error", segment, error);
     };

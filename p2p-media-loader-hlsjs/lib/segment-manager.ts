@@ -15,7 +15,7 @@
  */
 
 import Debug from "debug";
-import { Events, Segment, LoaderInterface, XhrSetupCallback } from "@peertube/p2p-media-loader-core";
+import { Events, Segment, LoaderInterface/*, XhrSetupCallback */} from "p2p-media-loader-core-basyton";
 import { Manifest, Parser } from "m3u8-parser";
 import { ByteRange, byteRangeToString, compareByteRanges } from "./byte-range";
 import { AssetsStorage } from "./engine";
@@ -33,6 +33,8 @@ export class SegmentManager {
     private masterPlaylist: Playlist | null = null;
     private readonly variantPlaylists = new Map<string, Playlist>();
     private segmentRequest: SegmentRequest | null = null;
+    private readonly fetch: typeof fetch = (...args) => fetch(...args);
+
     private playQueue: {
         segmentSequence: number;
         segmentUrl: string;
@@ -44,13 +46,17 @@ export class SegmentManager {
     }[] = [];
     private readonly settings: SegmentManagerSettings;
 
-    public constructor(loader: LoaderInterface, settings: Partial<SegmentManagerSettings> = {}) {
+    public constructor(loader: LoaderInterface, settings: Partial<SegmentManagerSettings> = {}, loadersettings: any = {}) {
         this.settings = { ...defaultSettings, ...settings };
 
         this.loader = loader;
         this.loader.on(Events.SegmentLoaded, this.onSegmentLoaded);
         this.loader.on(Events.SegmentError, this.onSegmentError);
         this.loader.on(Events.SegmentAbort, this.onSegmentAbort);
+
+        if (loadersettings.localTransport) {
+            this.fetch = loadersettings.localTransport;
+        }
     }
 
     public getSettings(): SegmentManagerSettings {
@@ -107,7 +113,14 @@ export class SegmentManager {
                     response: asset.data as string,
                 };
             } else {
-                xhr = await this.loadContent(url, "text");
+
+                const fetch = await this.loadContent(url);
+
+                xhr = {
+                    responseURL: fetch.url,
+                    response: await fetch.text(),
+                };
+
                 void assetsStorage.storeAsset({
                     masterManifestUri: this.masterPlaylist !== null ? this.masterPlaylist.requestUrl : url,
                     masterSwarmId: masterSwarmId,
@@ -117,7 +130,12 @@ export class SegmentManager {
                 });
             }
         } else {
-            xhr = await this.loadContent(url, "text");
+            const fetch = await this.loadContent(url);
+
+            xhr = {
+                responseURL: fetch.url,
+                response: await fetch.text(),
+            };
         }
 
         this.processPlaylist(url, xhr.response, xhr.responseURL);
@@ -163,23 +181,25 @@ export class SegmentManager {
                     if (asset !== undefined) {
                         content = asset.data as ArrayBuffer;
                     } else {
-                        const xhr = await this.loadContent(url, "arraybuffer", byteRangeString);
-                        content = xhr.response as ArrayBuffer;
+                        const fetch  = await this.loadContent(url, byteRangeString);
+                        content = await fetch.arrayBuffer();
+
                         void assetsStorage.storeAsset({
                             masterManifestUri: masterManifestUri,
                             masterSwarmId: masterSwarmId,
                             requestUri: url,
                             requestRange: byteRangeString,
-                            responseUri: xhr.responseURL,
-                            data: content,
+                            responseUri: fetch.url,
+                            data: content as ArrayBuffer,
                         });
+
                     }
                 }
             }
 
             if (content === undefined) {
-                const xhr = await this.loadContent(url, "arraybuffer", byteRangeString);
-                content = xhr.response as ArrayBuffer;
+                const fetch = await this.loadContent(url, byteRangeString);
+                content = await fetch.arrayBuffer();
             }
 
             return { content, downloadBandwidth: 0 };
@@ -439,6 +459,20 @@ export class SegmentManager {
 
     private async loadContent(
         url: string,
+        range?: string
+    ): Promise<any> {
+        const headers = new Headers();
+
+        if (range) {
+            headers.append('Range', range);
+        }
+
+        return this.fetch(url, { headers });
+      
+    }
+
+    /*private async loadContent(
+        url: string,
         responseType: XMLHttpRequestResponseType,
         range?: string
     ): Promise<XMLHttpRequest> {
@@ -467,7 +501,7 @@ export class SegmentManager {
 
             xhr.send();
         });
-    }
+    }*/
 }
 
 class Playlist {
@@ -521,4 +555,6 @@ export interface SegmentManagerSettings {
      * A storage for the downloaded assets: manifests, subtitles, init segments, DRM assets etc. By default the assets are not stored.
      */
     assetsStorage?: AssetsStorage;
+
+    localTransport? : typeof fetch;
 }

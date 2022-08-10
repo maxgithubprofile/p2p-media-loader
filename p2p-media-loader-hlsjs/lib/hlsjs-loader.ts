@@ -15,7 +15,7 @@
  */
 
 import Debug from "debug";
-import { Events, LoaderInterface, Segment } from "@peertube/p2p-media-loader-core";
+import { Events, LoaderInterface, Segment } from "p2p-media-loader-core-basyton";
 import { byteRangeToString, getByteRange } from "./byte-range";
 import { SegmentManager } from "./segment-manager";
 import type { LoaderCallbacks, LoaderConfiguration, LoaderContext, LoaderStats } from "hls.js";

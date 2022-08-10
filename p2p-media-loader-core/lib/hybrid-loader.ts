@@ -738,4 +738,6 @@ export type HybridLoaderSettings = {
      * By default the segments are stored in JavaScript memory.
      */
     segmentsStorage?: SegmentsStorage;
+
+    localTransport?: typeof fetch;
 };
