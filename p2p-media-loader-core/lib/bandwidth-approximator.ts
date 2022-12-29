@@ -18,8 +18,8 @@ import Debug from "debug";
 
 const debug = Debug("p2pml:bandwidth-approximator");
 
-const SMOOTH_INTERVAL = 2 * 1000;
-const MEASURE_INTERVAL = 40 * 1000;
+const SMOOTH_INTERVAL = 4 * 1000;
+const MEASURE_INTERVAL = 80 * 1000;
 
 class NumberWithTime {
     constructor(readonly value: number, readonly timeStamp: number) {}
@@ -47,7 +47,7 @@ export class BandwidthApproximator {
 
     // in bytes per millisecond
     public getBandwidth = (timeStamp: number): number => {
-        while (this.lastBandwidth.length !== 0 && timeStamp - this.lastBandwidth[0].timeStamp > MEASURE_INTERVAL) {
+        while (this.lastBandwidth.length > 20 && timeStamp - this.lastBandwidth[0].timeStamp > MEASURE_INTERVAL) {
             this.lastBandwidth.shift();
         }
 
@@ -57,6 +57,8 @@ export class BandwidthApproximator {
                 maxBandwidth = bandwidth.value;
             }
         }
+
+        
 
         debug("Max bandwidth: %d.", maxBandwidth);
 

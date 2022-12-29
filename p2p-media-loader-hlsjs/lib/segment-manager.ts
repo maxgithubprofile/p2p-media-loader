@@ -145,7 +145,7 @@ export class SegmentManager {
     public async loadSegment(
         url: string,
         byteRange: ByteRange
-    ): Promise<{ content: ArrayBuffer | undefined; downloadBandwidth?: number }> {
+    ): Promise<{ content: ArrayBuffer | undefined; downloadBandwidth?: number; bwEstimateSample? : boolean }> {
         const segmentLocation = this.getSegmentLocation(url, byteRange);
         const byteRangeString = byteRangeToString(byteRange);
 
@@ -221,15 +221,15 @@ export class SegmentManager {
             this.segmentRequest.onError("Cancel segment request: simultaneous segment requests are not supported");
         }
 
-        const promise = new Promise<{ content: ArrayBuffer | undefined; downloadBandwidth?: number }>(
+        const promise = new Promise<{ content: ArrayBuffer | undefined; downloadBandwidth?: number; bwEstimateSample? : boolean }>(
             (resolve, reject) => {
                 this.segmentRequest = new SegmentRequest(
                     url,
                     byteRange,
                     segmentSequence,
                     segmentLocation.playlist.requestUrl,
-                    (content: ArrayBuffer | undefined, downloadBandwidth?: number) =>
-                        resolve({ content, downloadBandwidth }),
+                    (content: ArrayBuffer | undefined, downloadBandwidth?: number, bwEstimateSample? : boolean ) =>
+                        resolve({ content, downloadBandwidth, bwEstimateSample }),
                     (error) => reject(error)
                 );
             }
@@ -278,7 +278,7 @@ export class SegmentManager {
             this.segmentRequest.segmentUrl === url &&
             compareByteRanges(this.segmentRequest.segmentByteRange, byteRange)
         ) {
-            this.segmentRequest.onSuccess(undefined, 0);
+            this.segmentRequest.onSuccess(undefined, 0, false);
             this.segmentRequest = null;
         }
     }
@@ -286,7 +286,7 @@ export class SegmentManager {
     public abortCurrentSegment () {
         if (!this.segmentRequest) return;
 
-        this.segmentRequest.onSuccess(undefined, 0);
+        this.segmentRequest.onSuccess(undefined, 0, false);
         this.segmentRequest = null;
     }
 
@@ -325,14 +325,14 @@ export class SegmentManager {
         }
     }
 
-    private onSegmentLoaded = (segment: Segment) => {
+    private onSegmentLoaded = (segment: Segment, peerId? : String) => {
         if (
             this.segmentRequest &&
             this.segmentRequest.segmentUrl === segment.url &&
             byteRangeToString(this.segmentRequest.segmentByteRange) === segment.range
         ) {
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            this.segmentRequest.onSuccess(segment.data!.slice(0), segment.downloadBandwidth);
+            this.segmentRequest.onSuccess(segment.data!.slice(0), segment.downloadBandwidth, peerId ? false : true);
             this.segmentRequest = null;
         }
     };
@@ -416,7 +416,7 @@ export class SegmentManager {
             const segment = await this.loader.getSegment(loadSegmentId);
             if (segment) {
                 // Segment already loaded by loader
-                this.onSegmentLoaded(segment);
+                this.onSegmentLoaded(segment, 'fakepeerid');
             }
         }
     }
@@ -534,7 +534,7 @@ class SegmentRequest {
         readonly segmentByteRange: ByteRange,
         readonly segmentSequence: number,
         readonly playlistRequestUrl: string,
-        readonly onSuccess: (content: ArrayBuffer | undefined, downloadBandwidth: number | undefined) => void,
+        readonly onSuccess: (content: ArrayBuffer | undefined, downloadBandwidth: number | undefined, bwEstimateSample : boolean | false) => void,
         readonly onError: (error: unknown) => void
     ) {}
 }

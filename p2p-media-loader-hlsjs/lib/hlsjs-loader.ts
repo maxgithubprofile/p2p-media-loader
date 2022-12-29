@@ -37,6 +37,7 @@ export class HlsJsLoader {
         retry: 0,
         chunkCount: 0,
         bwEstimate: 0,
+        bwEstimateSample : false,
         loading: {
             start: 0,
             end: 0,
@@ -108,8 +109,15 @@ export class HlsJsLoader {
 
             try {
                 const result = await this.segmentManager.loadSegment(this.context.url, this.byteRange);
-                const { content } = result;
+                const { content, bwEstimateSample } = result;
                 if (content) {
+
+                    ////bwEstimateSample
+
+                    if (bwEstimateSample){
+                        this.stats.bwEstimateSample = bwEstimateSample
+                    }
+
                     this.successSegment(content, this.context, this.callbacks);
 
                     this.debug(`Loaded fragment ${this.debugId}.`);

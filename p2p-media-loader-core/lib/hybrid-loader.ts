@@ -27,7 +27,7 @@ import { SegmentsMemoryStorage } from "./segments-memory-storage";
 
 const defaultSettings: HybridLoaderSettings = {
     cachedSegmentExpiration: 5 * 60 * 1000,
-    cachedSegmentsCount: 30,
+    cachedSegmentsCount: 90,
 
     useP2P: true,
     consumeOnly: false,
@@ -418,7 +418,9 @@ export class HybridLoader extends EventEmitter implements LoaderInterface {
     };
 
     private onPieceBytesDownloaded = (method: "http" | "p2p", segment: Segment, bytes: number, peerId?: string) => {
-        this.bandwidthApproximator.addBytes(bytes, this.now());
+        if (method == 'http'){
+            this.bandwidthApproximator.addBytes(bytes, this.now());
+        }
         this.emit(Events.PieceBytesDownloaded, method, segment, bytes, peerId);
     };
 

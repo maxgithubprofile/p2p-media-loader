@@ -193,53 +193,78 @@ export class HttpMediaManager extends FilteredEmitter {
     private setupFetchEvents = async (fetch: Promise<Response>, segment: Segment, downloadedPieces?: ArrayBuffer[]) => {
         const fetchResponse = await fetch as Response & { body: ReadableStream };
 
-        const dataReader = fetchResponse.body.getReader();
+        var contentLengthStr = fetchResponse.headers.get("Content-Length") as string;
 
-        const contentLengthStr = fetchResponse.headers.get("Content-Length") as string;
+        if(!contentLengthStr && segment && segment.range && segment.range.replace){
+            var chn = segment.range.replace('bytes=', '').split('-')
 
-        
+            contentLengthStr = (Number(chn[1]) - Number(chn[0]) + 1).toString()
+        }
 
         const contentLength = Number.parseFloat(contentLengthStr);
 
-        const dataBytes: Uint8Array = new Uint8Array(contentLength);
+        if(fetchResponse.body){
 
-        let nextChunkPos = 0;
+            const dataReader = fetchResponse.body.getReader();
 
-        if (Array.isArray(downloadedPieces) && fetchResponse.status === 206) {
-            for (const piece of downloadedPieces) {
-                const pieceBytes = new Uint8Array(piece);
+            const dataBytes: Uint8Array = new Uint8Array(contentLength);
 
-                dataBytes.set(pieceBytes, nextChunkPos);
+            let nextChunkPos = 0;
 
-                nextChunkPos = piece.byteLength;
+            if (Array.isArray(downloadedPieces) && fetchResponse.status === 206) {
+                for (const piece of downloadedPieces) {
+                    const pieceBytes = new Uint8Array(piece);
+
+                    dataBytes.set(pieceBytes, nextChunkPos);
+
+                    nextChunkPos = piece.byteLength;
+                }
             }
+
+            let read;
+
+            while (!(read = await dataReader.read()).done) {
+                const chunkBytes = read.value;
+
+                dataBytes.set(chunkBytes, nextChunkPos);
+
+                nextChunkPos += chunkBytes.length;
+
+                /** Events emitters */
+
+                this.emit("bytes-downloaded", segment, chunkBytes.length);
+
+                if (contentLength) {
+                    this.emit("segment-size", segment, contentLength);
+                }
+            }
+
+            if (fetchResponse.status < 200 || fetchResponse.status >= 300) {
+                const err = Error(`Segment failure with HTTP code ${fetchResponse.status}`);
+                this.segmentFailure(segment, err, fetchResponse.url);
+                return;
+            }
+
+            await this.segmentDownloadFinished(segment, dataBytes.buffer, fetchResponse);
+
         }
+        else{
+            var buffer = await fetchResponse.arrayBuffer();
 
-        let read;
-
-        while (!(read = await dataReader.read()).done) {
-            const chunkBytes = read.value;
-
-            dataBytes.set(chunkBytes, nextChunkPos);
-
-            nextChunkPos += chunkBytes.length;
-
-            /** Events emitters */
-
-            this.emit("bytes-downloaded", segment, chunkBytes.length);
+            this.emit("bytes-downloaded", segment, buffer.byteLength);
 
             if (contentLength) {
                 this.emit("segment-size", segment, contentLength);
             }
-        }
 
-        if (fetchResponse.status < 200 || fetchResponse.status >= 300) {
-            const err = Error(`Segment failure with HTTP code ${fetchResponse.status}`);
-            this.segmentFailure(segment, err, fetchResponse.url);
-            return;
-        }
+            if (fetchResponse.status < 200 || fetchResponse.status >= 300) {
+                const err = Error(`Segment failure with HTTP code ${fetchResponse.status}`);
+                this.segmentFailure(segment, err, fetchResponse.url);
+                return;
+            }
 
-        await this.segmentDownloadFinished(segment, dataBytes.buffer, fetchResponse);
+            await this.segmentDownloadFinished(segment, buffer, fetchResponse);
+        }
     };
 
     private segmentDownloadFinished = async (segment: Segment, data: ArrayBuffer, fetchResponse: Response) => {

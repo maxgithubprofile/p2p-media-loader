@@ -153,6 +153,6 @@ function initHlsJsEvents(player: any, engine: Engine): void {
 
         // Abort current HTTP/P2P request so HLS is not stuck with a P2P request when moving current video player time
         // to a previously loaded fragment
-        engine.abortCurrentRequest();
+        //engine.abortCurrentRequest();
     })
 }
