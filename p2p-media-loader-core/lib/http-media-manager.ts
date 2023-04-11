@@ -193,15 +193,26 @@ export class HttpMediaManager extends FilteredEmitter {
     private setupFetchEvents = async (fetch: Promise<Response>, segment: Segment, downloadedPieces?: ArrayBuffer[]) => {
         const fetchResponse = await fetch as Response & { body: ReadableStream };
 
-        var contentLengthStr = fetchResponse.headers.get("Content-Length") as string;
+        var contentLengthStr = ''
+        
+        
 
-        if(!contentLengthStr && segment && segment.range && segment.range.replace){
+        if(segment && segment.range && segment.range.replace){
             var chn = segment.range.replace('bytes=', '').split('-')
 
             contentLengthStr = (Number(chn[1]) - Number(chn[0]) + 1).toString()
+
+            console.log('here')
+        }
+        //// fetch in IE, wrong Content-Length
+        if(!contentLengthStr){
+            contentLengthStr = fetchResponse.headers.get("Content-Length") as string;
         }
 
         const contentLength = Number.parseFloat(contentLengthStr);
+
+
+        console.log('contentLength', contentLength, contentLengthStr, segment.range)
 
         if(fetchResponse.body){
 

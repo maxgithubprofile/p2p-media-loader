@@ -20,7 +20,7 @@
 
 import Debug from "debug";
 import { Buffer } from "buffer";
-
+import sha1 from "sha.js/sha1";
 import { STEEmitter } from "./stringly-typed-event-emitter";
 
 enum MediaPeerCommands {
@@ -81,6 +81,8 @@ export class MediaPeer extends STEEmitter<
     private segmentsMap = new Map<string, MediaPeerSegmentStatus>();
     private debug = Debug("p2pml:media-peer");
     private timer: ReturnType<typeof setTimeout> | null = null;
+    private blockedRequests: Map<string, number> | null = null;
+    private blockedRequestTime = 5000
 
     constructor(
         // eslint-disable-next-line
@@ -98,6 +100,8 @@ export class MediaPeer extends STEEmitter<
         this.peer.on("data", this.onPeerData);
 
         this.id = peer.id;
+
+        this.blockedRequests = new Map<string, number>()
     }
 
     private onPeerConnect = () => {
@@ -165,6 +169,8 @@ export class MediaPeer extends STEEmitter<
     private onPeerData = (data: ArrayBuffer) => {
         const command = this.getJsonCommand(data);
 
+        
+
         if (command === null) {
             this.receiveSegmentPiece(data);
             return;
@@ -178,8 +184,27 @@ export class MediaPeer extends STEEmitter<
             this.emit("segment-error", this, segmentId, "Segment download is interrupted by a command");
             return;
         }
-
         this.debug("peer receive command", this.id, command, this);
+
+        if (this.blockedRequests){
+            var now = performance.now()
+
+            var commandHash =  new sha1().update(data.toString()).digest('hex');
+    
+            var time = this.blockedRequests.get(commandHash)
+    
+            if (time && now < time){
+                this.debug("block repeated command");
+    
+                return
+            }
+
+            this.blockedRequests.forEach((time, key, map) => {
+                if (now > time) map.delete(key)
+            })
+    
+            this.blockedRequests.set(commandHash, now + this.blockedRequestTime)
+        }
 
         switch (command.c) {
             case MediaPeerCommands.SegmentsMap:
@@ -269,6 +294,8 @@ export class MediaPeer extends STEEmitter<
         this.debug("peer destroy", this.id, this);
         this.terminateSegmentRequest();
         this.peer.destroy();
+
+        this.blockedRequests = null
     };
 
     public getDownloadingSegmentId = (): string | null => {
