@@ -1,7 +1,7 @@
 {
   "name": "p2p-media-loader-hlsjs-basyton",
   "description": "P2P Media Loader hls.js integration - Basyton fork",
-  "version": "1.0.23",
+  "version": "1.0.24",
   "private": false,
   "license": "Apache-2.0",
   "author": "Chocobozzz",
@@ -23,7 +23,7 @@
     "url": "https://github.com/maxgithubprofile/p2p-media-loader.git"
   },
   "dependencies": {
-    "p2p-media-loader-core-basyton": "^1.0.23",
+    "p2p-media-loader-core-basyton": "^1.0.24",
     "debug": "^4.3.4",
     "events": "^3.3.0",
     "m3u8-parser": "^4.7.1"
