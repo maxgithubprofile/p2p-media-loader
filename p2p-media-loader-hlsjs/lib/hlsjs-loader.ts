@@ -102,7 +102,7 @@ export class HlsJsLoader {
 
 
             // We may be downloading the segment by P2P, so we don"t care about the stats sent to HLS ABR
-            //this.interval = setInterval(() => HlsJsLoader.updateStatsToStartLoading(this.stats), 200);
+            this.interval = setInterval(() => HlsJsLoader.updateStatsToStartLoading(this.stats), 200);
 
             this.loader.on(Events.SegmentAbort, this.boundOnSegmentAbort);
             this.loader.on(Events.SegmentSize, this.boundOnUpdateSegmentSize);
