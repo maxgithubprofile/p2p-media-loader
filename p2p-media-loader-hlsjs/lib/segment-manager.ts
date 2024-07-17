@@ -46,7 +46,7 @@ export class SegmentManager {
     }[] = [];
     private readonly settings: SegmentManagerSettings;
 
-    public constructor(loader: LoaderInterface, settings: Partial<SegmentManagerSettings> = {}, loadersettings: any = {}) {
+    public constructor(loader: LoaderInterface, settings: Partial<SegmentManagerSettings> = {}) {
         this.settings = { ...defaultSettings, ...settings };
 
         this.loader = loader;
@@ -54,8 +54,8 @@ export class SegmentManager {
         this.loader.on(Events.SegmentError, this.onSegmentError);
         this.loader.on(Events.SegmentAbort, this.onSegmentAbort);
 
-        if (loadersettings.localTransport) {
-            this.fetch = loadersettings.localTransport;
+        if (settings.localTransport) {
+            this.fetch = settings.localTransport;
         }
     }
 
